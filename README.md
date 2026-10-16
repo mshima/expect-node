@@ -66,18 +66,23 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
   `.runIf(condition)`, `.only`, `.skip` and `.todo(name)`; the options before the function (`{ timeout }`), or the
   timeout after it.
   The function of a test gets a context whose `skip()` ends it skipped.
-- `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, a timeout after the function.
+- `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, a timeout after the function, which may end by a callback it gets
+  (`done`, an error failing the hook) like Jest and mocha; `before` and `after`, the names of mocha.
 - `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`).
 - `exnode`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
-  - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock.
-  - `await exnode.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, a
-    relative specifier from the calling file, and gives its exports. The exports given are over the ones of the module,
-    so the modules importing other names of it still link; without them, every export is mocked by jest-mock (its
-    functions mock functions). `unmock(specifier)` and `resetModules()` give the module itself again to the imports
-    after them, `importActual(specifier)` gives it mocked or not; `doMock` and `doUnmock` are `mock` and `unmock`. Unlike `vi.mock`, it is not hoisted: import the module under test after
-    it, with `await import(...)`. The mocks are in-thread hooks (`module.registerHooks`): the module mocks of node run
-    off-thread hooks, whose thread records a coverage of zero for the module mocked, which node merges over the one of
-    the tests (nodejs/node#65946).
+  - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock; all but
+    `mocked` exported by themselves too, like esmocha.
+  - `await exnode.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, its
+    specifier resolved from the calling file (relative, a package, a subpath import), and gives its exports. The
+    exports given are over the ones of the module, so the modules importing other names of it still link; without
+    them, every export is mocked by jest-mock (its functions mock functions). `unmock(specifier)` and `resetModules()`
+    (`reset()` of esmocha) give the module itself again to the imports after them, `importActual(specifier)` gives it
+    mocked or not; `doMock` and `doUnmock` are `mock` and `unmock`. Unlike `vi.mock`, it is not hoisted: import the
+    module under test after it, with `await import(...)`. A module of the project imported before is imported again,
+    like quibble of esmocha does, so the module under test sees the mock even when the test file imported it first;
+    the ones imported before keep theirs, and the packages (`node_modules`) are not imported again. The mocks are
+    in-thread hooks (`module.registerHooks`): the module mocks of node run off-thread hooks, whose thread records a
+    coverage of zero for the module mocked, which node merges over the one of the tests (nodejs/node#65946).
   - `stubEnv(name, value)` (undefined deletes it), `stubGlobal(name, value)`: given back after each test
     (`unstubAllEnvs`, `unstubAllGlobals`).
 
@@ -116,6 +121,16 @@ export default defineConfig({
   reporters: ['spec', 'lcov:coverage/lcov.info'],
 });
 ```
+
+A failed test is located in its test file (`test at test/sum.test.ts:12:3`), the line of its `it`.
+
+### From mocha or esmocha
+
+`mocha: true` gives the tests, the suites and the hooks the `this` of mocha: `this.skip()` skips the test, in a
+`before` the tests of its suite, in a `beforeEach` the test; `this.timeout(ms)` of a suite is the timeout of its tests,
+of no effect in a test or a hook. It is deprecated, for a migration: each warns once (`EXNODE_MOCHA_THIS`), and the
+types mark it. From esmocha, the imports of `esmocha` become the ones of `expect-node`, `esmocha` becoming `exnode`, and
+`esmocha.mock(specifier, import(specifier))`, every export mocked, becomes `exnode.mock(specifier)`.
 
 A reporter is one of node:test (`spec`, `tap`, `dot`, `junit`, `lcov`) or the path of a module of one (its default
 export, like an async generator of the events), to the terminal or, after a `:`, to a file: `--reporter dot --reporter

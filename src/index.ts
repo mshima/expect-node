@@ -5,5 +5,5 @@
  * bin (see cli.ts).
  */
 export { expect } from './expect.ts';
-export { exnode } from './exnode.ts';
-export { afterAll, afterEach, beforeAll, beforeEach, describe, it, test, type TestContext } from './test.ts';
+export { clearAllMocks, exnode, fn, isMockFunction, resetAllMocks, restoreAllMocks, spyOn } from './exnode.ts';
+export { after, afterAll, afterEach, before, beforeAll, beforeEach, describe, it, test, type TestContext } from './test.ts';

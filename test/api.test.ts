@@ -1,4 +1,22 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, test } from '../src/index.ts';
+import {
+  after,
+  afterAll,
+  afterEach,
+  before,
+  beforeAll,
+  beforeEach,
+  clearAllMocks,
+  describe,
+  exnode,
+  expect,
+  fn,
+  isMockFunction,
+  it,
+  resetAllMocks,
+  restoreAllMocks,
+  spyOn,
+  test,
+} from '../src/index.ts';
 
 describe('the API of Jest and Vitest', () => {
   const calls: string[] = [];
@@ -82,4 +100,35 @@ describe('test', () => {
   });
 
   it.todo('reports a test to write');
+});
+
+describe('the names of mocha and esmocha', () => {
+  it('has before and after, and the mock functions by themselves', () => {
+    expect({ before, after }).toEqual({ before: beforeAll, after: afterAll });
+    expect({ fn, spyOn, isMockFunction, clearAllMocks, resetAllMocks, restoreAllMocks }).toEqual({
+      fn: exnode.fn,
+      spyOn: exnode.spyOn,
+      isMockFunction: exnode.isMockFunction,
+      clearAllMocks: exnode.clearAllMocks,
+      resetAllMocks: exnode.resetAllMocks,
+      restoreAllMocks: exnode.restoreAllMocks,
+    });
+  });
+
+  describe('a hook ending by its callback', () => {
+    let done = false;
+    before(end => {
+      setTimeout(() => {
+        done = true;
+        end();
+      }, 10);
+    });
+    it('runs after it', () => {
+      expect(done).toBe(true);
+    });
+  });
+
+  it('gives no this of mocha without its configuration', function () {
+    expect(this).toBeUndefined();
+  });
 });
