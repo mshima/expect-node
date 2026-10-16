@@ -12,9 +12,7 @@ describe('the API of Jest and Vitest', () => {
     calls.push('afterEach');
   });
   afterAll(() => {
-    // Each test run between its hooks, the skipped ones not.
-    expect(calls.slice(0, 3)).toEqual(['beforeAll', 'beforeEach', 'afterEach']);
-    expect(calls.filter(call => call === 'beforeEach')).toHaveLength(calls.filter(call => call === 'afterEach').length);
+    calls.push('afterAll');
   });
 
   it('runs the hooks around each test', () => {
@@ -22,7 +20,8 @@ describe('the API of Jest and Vitest', () => {
   });
 
   it('takes a timeout after the function, or options before it', { timeout: 1000 }, () => {
-    expect(1).toBe(1);
+    // The hooks of the test before it, then the ones of this one.
+    expect(calls).toEqual(['beforeAll', 'beforeEach', 'afterEach', 'beforeEach']);
   });
 
   it.each([
