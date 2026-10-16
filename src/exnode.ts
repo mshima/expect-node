@@ -15,8 +15,8 @@ const mocker = new ModuleMocker(globalThis);
 const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; version: number }>();
 /** Each mock of a module a URL of its own: node keeps a module by its URL, a module mocked again is another one. */
 let mocks = 0;
-const MOCKED = Symbol.for('expect-node.mocked');
-const MOCK_PROTOCOL = 'expect-node-mock:';
+const MOCKED = Symbol.for('exnode.mocked');
+const MOCK_PROTOCOL = 'exnode-mock:';
 (globalThis as Record<symbol, unknown>)[MOCKED] = mocked;
 const isIdentifier = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
 registerHooks({
@@ -30,7 +30,7 @@ registerHooks({
     const of = url.slice(url.indexOf(':', MOCK_PROTOCOL.length) + 1);
     const { exports } = mocked.get(of)!;
     const names = Object.keys(exports).filter(name => name !== 'default' && isIdentifier(name));
-    const read = `globalThis[Symbol.for('expect-node.mocked')].get(${JSON.stringify(of)}).exports`;
+    const read = `globalThis[Symbol.for(${JSON.stringify(MOCKED.description)})].get(${JSON.stringify(of)}).exports`;
     const source = [
       `const exports = ${read};`,
       ...(names.length > 0 ? [`export const { ${names.join(', ')} } = exports;`] : []),
@@ -55,7 +55,7 @@ const setEnv = (name: string, value: string | undefined) => {
  * The mock functions of jest-mock, the module mocks, the environment and the globals stubbed for a test: the `vi` of
  * Vitest, the `jest` of Jest, the `esmocha` of esmocha.
  */
-export const extest = {
+export const exnode = {
   fn: mocker.fn.bind(mocker),
   spyOn: mocker.spyOn.bind(mocker),
   isMockFunction: mocker.isMockFunction.bind(mocker),
@@ -102,10 +102,10 @@ export const extest = {
   },
   // The module mocks are never hoisted: doMock and doUnmock of Jest and Vitest are mock and unmock.
   get doMock() {
-    return extest.mock;
+    return exnode.mock;
   },
   get doUnmock() {
-    return extest.unmock;
+    return exnode.unmock;
   },
   /** Sets a variable of the environment for the test, undefined deleting it: given back after it (see unstubAllEnvs). */
   stubEnv: (name: string, value: string | undefined) => {
@@ -133,6 +133,6 @@ export const extest = {
 
 // Like Vitest with unstubEnvs and unstubGlobals: what a test stubbed given back after it.
 nodeTest.afterEach(() => {
-  extest.unstubAllEnvs();
-  extest.unstubAllGlobals();
+  exnode.unstubAllEnvs();
+  exnode.unstubAllGlobals();
 });
