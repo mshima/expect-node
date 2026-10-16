@@ -1,0 +1,46 @@
+{
+  "name": "expect-test",
+  "version": "0.1.0",
+  "description": "node:test with the expect and mock API of Jest and Vitest, its coverage of subprocesses and workers included",
+  "keywords": ["node:test", "test", "expect", "jest", "vitest", "mock", "coverage", "typescript"],
+  "homepage": "https://github.com/mshima/expect-test",
+  "bugs": "https://github.com/mshima/expect-test/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mshima/expect-test.git"
+  },
+  "license": "MIT",
+  "author": "Marcelo Shima <marceloshima@gmail.com>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    }
+  },
+  "bin": {
+    "extest": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check-types": "tsc --noEmit",
+    "prepare": "npm run build",
+    "test": "node src/cli.ts --coverage"
+  },
+  "dependencies": {
+    "expect": "^30.5.2",
+    "jest-mock": "^30.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  }
+}
