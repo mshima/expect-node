@@ -1,9 +1,9 @@
 # expect-test
 
-node:test with the expect and mock API of Jest and Vitest. The runner, the timeouts and the coverage are node's: the
-coverage of the code a test runs in a subprocess or a worker thread counts too, and TypeScript runs as node strips it,
-without a transform between the tests and the code. The assertions are the `expect` of Jest, the mock functions
-`jest-mock`.
+node:test with the expect and mock API of Jest and Vitest, like [esmocha](https://github.com/mshima/esmocha) gives it
+over mocha. The runner, the timeouts and the coverage are node's: the coverage of the code a test runs in a subprocess
+or a worker thread counts too, and TypeScript runs as node strips it, without a transform between the tests and the
+code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
 
 ```ts
 import { beforeAll, describe, expect, it, mocks } from 'expect-test';
