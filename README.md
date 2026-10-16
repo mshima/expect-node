@@ -15,6 +15,20 @@ describe('a module', () => {
 });
 ```
 
+## Install
+
+```sh
+npm install --save-dev expect-node
+```
+
+The snapshot matchers need `jest-snapshot`, an optional peer dependency, installed apart:
+
+```sh
+npm install --save-dev jest-snapshot
+```
+
+Without it, everything else works, and a snapshot matcher fails its test, telling to install it (see Snapshots).
+
 ## Pure node
 
 The tests run the code as it runs in production: node strips the types of TypeScript in place, without a transform, a
@@ -24,7 +38,7 @@ bundler or source maps between the tests and the code.
   behave as when the code runs. A link error only node gives fails the test too, like a module importing a name another
   one does not export, which a transform may let through.
 - The runner, its parallelism, the timeouts and the coverage are node's: expect-node depends on `expect` and `jest-mock`
-  only.
+  only, and on `jest-snapshot` for the snapshots, when installed.
 
 ## Why node:test, and the module mocks by in-thread hooks
 
