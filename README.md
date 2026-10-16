@@ -15,6 +15,17 @@ describe('a module', () => {
 });
 ```
 
+## Pure node
+
+The tests run the code as it runs in production: node strips the types of TypeScript in place, without a transform, a
+bundler or source maps between the tests and the code.
+
+- The resolution is node's: the `exports` of the packages, the module hooks (`module.registerHooks`), ESM and CommonJS
+  behave as when the code runs. A link error only node gives fails the test too, like a module importing a name another
+  one does not export, which a transform may let through.
+- The runner, its parallelism, the timeouts and the coverage are node's: expect-test depends on `expect` and `jest-mock`
+  only.
+
 ## Why node:test, and the module mocks by in-thread hooks
 
 Two problems of coverage, which expect-test solves apart:
