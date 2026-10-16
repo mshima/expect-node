@@ -6,7 +6,7 @@ or a worker thread counts too, and TypeScript runs as node strips it, without a 
 code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
 
 ```ts
-import { beforeAll, describe, expect, it, mocks } from 'expect-test';
+import { beforeAll, describe, expect, extest, it } from 'expect-test';
 
 describe('a module', () => {
   it('works', () => {
@@ -51,9 +51,9 @@ Two problems of coverage, which expect-test solves apart:
   The function of a test gets a context whose `skip()` ends it skipped.
 - `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, a timeout after the function.
 - `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`).
-- `mocks`:
-  - `fn`, `spyOn`, `restoreAllMocks`: jest-mock.
-  - `await mocks.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, a
+- `extest`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
+  - `fn`, `spyOn`, `isMockFunction`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock.
+  - `await extest.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, a
     relative specifier from the calling file. Its exports are given over the ones of the module, so the modules
     importing other names of it still link. Unlike `vi.mock`, it is not hoisted: import the module under test after
     it, with `await import(...)`. The mocks are in-thread hooks (`module.registerHooks`): the module mocks of node run

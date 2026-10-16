@@ -174,10 +174,16 @@ const callerUrl = () => {
   return site!.scriptName.startsWith('file:') ? site!.scriptName : new URL(`file://${site!.scriptName}`).href;
 };
 
-/** The mock functions of jest-mock, the module mocks of node, the environment and the globals stubbed for a test. */
-export const mocks = {
+/**
+ * The mock functions of jest-mock, the module mocks, the environment and the globals stubbed for a test: the `vi` of
+ * Vitest, the `jest` of Jest, the `esmocha` of esmocha.
+ */
+export const extest = {
   fn: mocker.fn.bind(mocker),
   spyOn: mocker.spyOn.bind(mocker),
+  isMockFunction: mocker.isMockFunction.bind(mocker),
+  clearAllMocks: () => mocker.clearAllMocks(),
+  resetAllMocks: () => mocker.resetAllMocks(),
   restoreAllMocks: () => mocker.restoreAllMocks(),
   /**
    * Mocks a module for the imports after it: import the module under test after it (`await import`), not before, as
@@ -223,6 +229,6 @@ export const mocks = {
 
 // Like Vitest with unstubEnvs and unstubGlobals: what a test stubbed given back after it.
 test.afterEach(() => {
-  mocks.unstubAllEnvs();
-  mocks.unstubAllGlobals();
+  extest.unstubAllEnvs();
+  extest.unstubAllGlobals();
 });
