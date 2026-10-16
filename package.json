@@ -12,11 +12,11 @@
     "coverage",
     "typescript"
   ],
-  "homepage": "https://github.com/mshima/expect-test",
-  "bugs": "https://github.com/mshima/expect-test/issues",
+  "homepage": "https://github.com/mshima/expect-node",
+  "bugs": "https://github.com/mshima/expect-node/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mshima/expect-test.git"
+    "url": "git+https://github.com/mshima/expect-node.git"
   },
   "license": "MIT",
   "author": "Marcelo Shima <marceloshima@gmail.com>",
