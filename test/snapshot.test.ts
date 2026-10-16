@@ -2,7 +2,7 @@ import { describe, expect, it } from '../src/index.ts';
 
 describe('snapshots', () => {
   it('matches a value against its snapshot, in the file of jest', () => {
-    expect({ name: 'expect-test', list: [1, 2] }).toMatchSnapshot();
+    expect({ name: 'expect-node', list: [1, 2] }).toMatchSnapshot();
   });
 
   it('matches an inline snapshot', () => {

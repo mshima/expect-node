@@ -19,7 +19,7 @@ const run = async (...args: string[]) => {
   }
 };
 
-describe('the expect-test bin', () => {
+describe('the expect-node bin', () => {
   it('runs the test files of the configuration, with its setup and the modules it imports', async () => {
     expect(await run()).toMatchObject({ code: 0, stdout: expect.stringContaining('has the environment of the setup') });
   });
@@ -46,7 +46,7 @@ describe('the expect-test bin', () => {
   });
 
   it('reports by the reporters given, of node:test or of a module, to the terminal or to a file', async () => {
-    const folder = await mkdtemp(join(tmpdir(), 'expect-test-reporter-'));
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-reporter-'));
     try {
       const { code, stdout } = await run(
         'plain.check.ts',
@@ -68,7 +68,7 @@ describe('the expect-test bin', () => {
   });
 
   it('takes a configuration given, else none', async () => {
-    expect(await run('--config', join(project, 'expect-test.config.ts'), 'sum.check.ts')).toMatchObject({ code: 0 });
+    expect(await run('--config', join(project, 'expect-node.config.ts'), 'sum.check.ts')).toMatchObject({ code: 0 });
     // Without a configuration: the file given alone, without the setup nor the modules of the project.
     const { stdout } = await promisify(execFile)(process.execPath, [cli, join(project, 'plain.check.ts')], { cwd: import.meta.dirname });
     expect(stdout).toContain('tests 1');

@@ -1,4 +1,4 @@
-# expect-test
+# expect-node
 
 node:test with the expect and mock API of Jest and Vitest, like [esmocha](https://github.com/mshima/esmocha) gives it
 over mocha. The runner, the timeouts and the coverage are node's: the coverage of the code a test runs in a subprocess
@@ -6,7 +6,7 @@ or a worker thread counts too, and TypeScript runs as node strips it, without a 
 code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
 
 ```ts
-import { beforeAll, describe, expect, extest, it } from 'expect-test';
+import { beforeAll, describe, expect, extest, it } from 'expect-node';
 
 describe('a module', () => {
   it('works', () => {
@@ -23,24 +23,24 @@ bundler or source maps between the tests and the code.
 - The resolution is node's: the `exports` of the packages, the module hooks (`module.registerHooks`), ESM and CommonJS
   behave as when the code runs. A link error only node gives fails the test too, like a module importing a name another
   one does not export, which a transform may let through.
-- The runner, its parallelism, the timeouts and the coverage are node's: expect-test depends on `expect` and `jest-mock`
+- The runner, its parallelism, the timeouts and the coverage are node's: expect-node depends on `expect` and `jest-mock`
   only.
 
 ## Why node:test, and the module mocks by in-thread hooks
 
-Two problems of coverage, which expect-test solves apart:
+Two problems of coverage, which expect-node solves apart:
 
 - **The code a test runs out of its process.** A test that runs a cli in a subprocess, or code in a worker thread, gets
   no coverage of it with Vitest: its v8 provider measures the workers of Vitest only, and they run the code transformed
   by Vite. Merging the raw coverage of the subprocesses (`NODE_V8_COVERAGE`, with Monocart or c8) does not map either:
   the coverage of the code Vite transformed has offsets of its own, not the ones of the sources. node:test measures the
   test files, their subprocesses and their worker threads with `NODE_V8_COVERAGE` and merges them, and node runs
-  TypeScript by stripping its types in place, the offsets of the sources kept. This is why expect-test runs on
+  TypeScript by stripping its types in place, the offsets of the sources kept. This is why expect-node runs on
   node:test.
 - **The coverage of a module mocked.** The module mocks of node:test (`mock.module`), and quibble, run off-thread module
   hooks: the thread of the hooks compiles the module mocked and records a coverage of zero under its URL, which node
   merges over the one of the tests by URL alone (nodejs/node#65946). A module covered at 92% by its tests was reported at
-  11% once another test file mocked it. expect-test mocks by in-thread hooks of its own (`module.registerHooks`), which
+  11% once another test file mocked it. expect-node mocks by in-thread hooks of its own (`module.registerHooks`), which
   compile nothing on another thread. This one is a problem of node:test only: `vi.mock` goes through the module runner of
   Vite, not through the loader hooks of node, so the hooks change nothing for Vitest.
 
@@ -82,10 +82,10 @@ or `new`, or `none`).
 `extest [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
 
-The configuration is an `expect-test.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
+The configuration is an `expect-node.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
 
 ```ts
-import { defineConfig } from 'expect-test/config';
+import { defineConfig } from 'expect-node/config';
 
 export default defineConfig({
   // The test files, the default patterns of node:test when none.

@@ -1,7 +1,7 @@
 /**
- * expect-test: node:test with the API of Jest and Vitest. The runner, the coverage (of the subprocesses and the workers
+ * expect-node: node:test with the API of Jest and Vitest. The runner, the coverage (of the subprocesses and the workers
  * too) and the timeouts are node's; the assertions are the expect of Jest, the mock functions jest-mock, the module mocks
- * in-thread hooks of its own (see mocked). Run the tests with the expect-test bin (see cli.ts).
+ * in-thread hooks of its own (see mocked). Run the tests with the expect-node bin (see cli.ts).
  */
 import { registerHooks } from 'node:module';
 import { basename, dirname, join } from 'node:path';
@@ -81,7 +81,7 @@ if (snapshots) {
       SNAPSHOT_MATCHERS.map(name => [
         name,
         () => {
-          throw new Error(`${name} needs jest-snapshot, an optional peer dependency of expect-test: npm install --save-dev jest-snapshot`);
+          throw new Error(`${name} needs jest-snapshot, an optional peer dependency of expect-node: npm install --save-dev jest-snapshot`);
         },
       ]),
     ),
@@ -274,8 +274,8 @@ const mocker = new ModuleMocker(globalThis);
 const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; version: number }>();
 /** Each mock of a module a URL of its own: node keeps a module by its URL, a module mocked again is another one. */
 let mocks = 0;
-const MOCKED = Symbol.for('expect-test.mocked');
-const MOCK_PROTOCOL = 'expect-test-mock:';
+const MOCKED = Symbol.for('expect-node.mocked');
+const MOCK_PROTOCOL = 'expect-node-mock:';
 (globalThis as Record<symbol, unknown>)[MOCKED] = mocked;
 const isIdentifier = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
 registerHooks({
@@ -289,7 +289,7 @@ registerHooks({
     const of = url.slice(url.indexOf(':', MOCK_PROTOCOL.length) + 1);
     const { exports } = mocked.get(of)!;
     const names = Object.keys(exports).filter(name => name !== 'default' && isIdentifier(name));
-    const read = `globalThis[Symbol.for('expect-test.mocked')].get(${JSON.stringify(of)}).exports`;
+    const read = `globalThis[Symbol.for('expect-node.mocked')].get(${JSON.stringify(of)}).exports`;
     const source = [
       `const exports = ${read};`,
       ...(names.length > 0 ? [`export const { ${names.join(', ')} } = exports;`] : []),

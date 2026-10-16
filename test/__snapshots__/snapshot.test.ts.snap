@@ -6,7 +6,7 @@ exports[`snapshots matches a value against its snapshot, in the file of jest 1`]
     1,
     2,
   ],
-  "name": "expect-test",
+  "name": "expect-node",
 }
 `;
 

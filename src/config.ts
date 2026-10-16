@@ -1,4 +1,4 @@
-/** The configuration of a run of expect-test (see cli.ts), in an expect-test.config.ts (or .mts, .js, .mjs) of the cwd. */
+/** The configuration of a run of expect-node (see cli.ts), in an expect-node.config.ts (or .mts, .js, .mjs) of the cwd. */
 export type Config = {
   /** The test files, by glob patterns from the cwd: the default patterns of node:test when none. */
   files?: string[];
@@ -22,5 +22,5 @@ export type Config = {
   coverage?: { include?: string[]; exclude?: string[]; lines?: number; branches?: number; functions?: number };
 };
 
-/** The configuration of expect-test, typed. */
+/** The configuration of expect-node, typed. */
 export const defineConfig = (config: Config): Config => config;

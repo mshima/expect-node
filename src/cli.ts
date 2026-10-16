@@ -30,7 +30,7 @@ if (values['update-snapshot'] || values.updateSnapshot) {
   process.env.UPDATE_SNAPSHOT = 'all';
 }
 
-const CONFIG_FILES = ['expect-test.config.ts', 'expect-test.config.mts', 'expect-test.config.js', 'expect-test.config.mjs'];
+const CONFIG_FILES = ['expect-node.config.ts', 'expect-node.config.mts', 'expect-node.config.js', 'expect-node.config.mjs'];
 const configFile = values.config ? resolve(values.config) : CONFIG_FILES.map(file => resolve(file)).find(file => existsSync(file));
 const config: Config = configFile ? ((await import(pathToFileURL(configFile).href)) as { default: Config }).default : {};
 
