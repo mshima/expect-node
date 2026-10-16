@@ -1,4 +1,6 @@
 import { execFile } from 'node:child_process';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -41,6 +43,28 @@ describe('the expect-test bin', () => {
       cwd: join(import.meta.dirname, 'fixtures/defaults'),
     });
     expect(stdout).toContain('runs by the default patterns');
+  });
+
+  it('reports by the reporters given, of node:test or of a module, to the terminal or to a file', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-test-reporter-'));
+    try {
+      const { code, stdout } = await run(
+        'plain.check.ts',
+        '--reporter',
+        'reporter.mjs',
+        '--reporter',
+        `junit:${join(folder, 'junit/report.xml')}`,
+      );
+      expect({ code, stdout }).toEqual({ code: 0, stdout: 'passed sums\n' });
+      expect(await readFile(join(folder, 'junit/report.xml'), 'utf8')).toContain('<testcase name="sums"');
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('reports by the reporters of the configuration', async () => {
+    const { stdout } = await promisify(execFile)(process.execPath, [cli], { cwd: join(import.meta.dirname, 'fixtures/reporting') });
+    expect(stdout).toContain('ok 1 - reports by the reporters of the configuration');
   });
 
   it('takes a configuration given, else none', async () => {

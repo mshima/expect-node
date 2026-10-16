@@ -79,7 +79,7 @@ or `new`, or `none`).
 
 ## The bin
 
-`extest [--coverage] [--update-snapshot] [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
+`extest [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
 
 The configuration is an `expect-test.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
@@ -98,8 +98,14 @@ export default defineConfig({
     process.env.MY_CACHE = '/tmp/my-cache';
   },
   coverage: { include: ['packages/*/src/**/*.ts'], lines: 100, branches: 90, functions: 100 },
+  // The reporters, spec to the terminal when none: the --reporter of the bin replaces them.
+  reporters: ['spec', 'lcov:coverage/lcov.info'],
 });
 ```
+
+A reporter is one of node:test (`spec`, `tap`, `dot`, `junit`, `lcov`) or the path of a module of one (its default
+export, like an async generator of the events), to the terminal or, after a `:`, to a file: `--reporter dot --reporter
+lcov:coverage/lcov.info` prints dots and writes the coverage for a CI to publish.
 
 What is not worth a test is ignored where it is, with node's comments: `/* node:coverage ignore next */`,
 `/* node:coverage disable */` and `/* node:coverage enable */`. A comment line inside a block that never runs counts as

@@ -3,10 +3,10 @@
  * Runs the tests with node:test: every test file of the configuration (see config.ts), or the ones given, `--coverage`
  * with the coverage of the files it includes, its minimum failing the run. A failed test fails the run.
  */
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { run } from 'node:test';
-import { spec } from 'node:test/reporters';
+import * as reporters from 'node:test/reporters';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -21,6 +21,7 @@ const { values, positionals } = parseArgs({
     config: { type: 'string' },
     'update-snapshot': { type: 'boolean' },
     updateSnapshot: { type: 'boolean' },
+    reporter: { type: 'string', multiple: true },
   },
   allowPositionals: true,
 });
@@ -60,4 +61,20 @@ const stream = run({
 stream.on('test:fail', () => {
   process.exitCode = 1;
 });
-stream.compose(spec).pipe(process.stdout);
+/**
+ * A reporter, `<name>[:<file>]`: one of node:test (spec, tap, dot, junit, lcov) or the path of a module of one (its
+ * default export), to the terminal or to the file.
+ */
+const report = async (entry: string) => {
+  const at = entry.indexOf(':');
+  const [name, destination] = at === -1 ? [entry, undefined] : [entry.slice(0, at), entry.slice(at + 1)];
+  const reporter =
+    name in reporters
+      ? reporters[name as keyof typeof reporters]
+      : ((await import(pathToFileURL(resolve(name)).href)) as { default: unknown }).default;
+  if (destination) mkdirSync(dirname(resolve(destination)), { recursive: true });
+  stream
+    .compose(reporter as Parameters<typeof stream.compose>[0])
+    .pipe(destination ? createWriteStream(resolve(destination)) : process.stdout);
+};
+for (const entry of values.reporter ?? config.reporters ?? ['spec']) await report(entry);
