@@ -16,6 +16,13 @@ describe('the this of mocha', function () {
   });
 });
 
+describe('a suite skipping', function () {
+  this.skip();
+  it('is skipped', () => {
+    throw new Error('not skipped');
+  });
+});
+
 describe('a beforeAll skipping', () => {
   before(function () {
     this.skip();

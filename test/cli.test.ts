@@ -37,7 +37,7 @@ describe('the expect-node bin', () => {
       (error: { code: number; stdout: string }) => error,
     );
     expect(code).toBe(1);
-    expect(stdout).toMatch(/ℹ pass 2\nℹ fail 0\nℹ cancelled 1\nℹ skipped 3\n/);
+    expect(stdout).toMatch(/ℹ pass 2\nℹ fail 0\nℹ cancelled 1\nℹ skipped 4\n/);
     expect(stdout).toContain('test timed out after 1ms');
     expect(stdout.match(/this\.skip\(\) of mocha is deprecated/g)).toHaveLength(1);
     expect(stdout.match(/this\.timeout\(\) of mocha is deprecated/g)).toHaveLength(1);

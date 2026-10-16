@@ -126,7 +126,7 @@ A failed test is located in its test file (`test at test/sum.test.ts:12:3`), the
 
 ### From mocha or esmocha
 
-`mocha: true` gives the tests, the suites and the hooks the `this` of mocha: `this.skip()` skips the test, in a
+`mocha: true` gives the tests, the suites and the hooks the `this` of mocha: `this.skip()` skips the test, in a suite or a
 `before` the tests of its suite, in a `beforeEach` the test; `this.timeout(ms)` of a suite is the timeout of its tests,
 of no effect in a test or a hook. It is deprecated, for a migration: each warns once (`EXNODE_MOCHA_THIS`), and the
 types mark it. From esmocha, the imports of `esmocha` become the ones of `expect-node`, `esmocha` becoming `exnode`, and

@@ -198,7 +198,7 @@ const hook =
             ? new Promise<void>((resolve, reject) => {
                 void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
               })
-            : fn.call(self!, () => undefined));
+            : (fn as (this: MochaThis) => unknown).call(self!));
         } catch (error) {
           if (error !== SKIPPED) throw error;
         }
