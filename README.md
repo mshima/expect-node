@@ -6,7 +6,7 @@ or a worker thread counts too, and TypeScript runs as node strips it, without a 
 code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
 
 ```ts
-import { beforeAll, describe, expect, extest, it } from 'expect-node';
+import { beforeAll, describe, expect, exnode, it } from 'expect-node';
 
 describe('a module', () => {
   it('works', () => {
@@ -54,9 +54,9 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
   The function of a test gets a context whose `skip()` ends it skipped.
 - `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, a timeout after the function.
 - `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`).
-- `extest`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
+- `exnode`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
   - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock.
-  - `await extest.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, a
+  - `await exnode.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, a
     relative specifier from the calling file, and gives its exports. The exports given are over the ones of the module,
     so the modules importing other names of it still link; without them, every export is mocked by jest-mock (its
     functions mock functions). `unmock(specifier)` and `resetModules()` give the module itself again to the imports
@@ -79,7 +79,7 @@ or `new`, or `none`).
 
 ## The bin
 
-`extest [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
+`exnode [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
 
 The configuration is an `expect-node.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:

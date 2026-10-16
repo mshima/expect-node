@@ -55,7 +55,7 @@ const setEnv = (name: string, value: string | undefined) => {
  * The mock functions of jest-mock, the module mocks, the environment and the globals stubbed for a test: the `vi` of
  * Vitest, the `jest` of Jest, the `esmocha` of esmocha.
  */
-export const extest = {
+export const exnode = {
   fn: mocker.fn.bind(mocker),
   spyOn: mocker.spyOn.bind(mocker),
   isMockFunction: mocker.isMockFunction.bind(mocker),
@@ -102,10 +102,10 @@ export const extest = {
   },
   // The module mocks are never hoisted: doMock and doUnmock of Jest and Vitest are mock and unmock.
   get doMock() {
-    return extest.mock;
+    return exnode.mock;
   },
   get doUnmock() {
-    return extest.unmock;
+    return exnode.unmock;
   },
   /** Sets a variable of the environment for the test, undefined deleting it: given back after it (see unstubAllEnvs). */
   stubEnv: (name: string, value: string | undefined) => {
@@ -133,6 +133,6 @@ export const extest = {
 
 // Like Vitest with unstubEnvs and unstubGlobals: what a test stubbed given back after it.
 nodeTest.afterEach(() => {
-  extest.unstubAllEnvs();
-  extest.unstubAllGlobals();
+  exnode.unstubAllEnvs();
+  exnode.unstubAllGlobals();
 });

@@ -32,7 +32,7 @@
     }
   },
   "bin": {
-    "extest": "./dist/cli.js"
+    "exnode": "./dist/cli.js"
   },
   "files": [
     "dist"

@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 10_000,
   concurrency: 2,
   setup: () => {
-    process.env.EXPECT_TEST_SETUP = 'from the runner';
+    process.env.EXPECT_NODE_SETUP = 'from the runner';
   },
   coverage: { include: ['*.ts'], exclude: ['*.check.ts'], lines: 100, branches: 100, functions: 100 },
 });
