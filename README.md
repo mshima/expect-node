@@ -15,6 +15,24 @@ describe('a module', () => {
 });
 ```
 
+## Why node:test, and the module mocks by in-thread hooks
+
+Two problems of coverage, which expect-test solves apart:
+
+- **The code a test runs out of its process.** A test that runs a cli in a subprocess, or code in a worker thread, gets
+  no coverage of it with Vitest: its v8 provider measures the workers of Vitest only, and they run the code transformed
+  by Vite. Merging the raw coverage of the subprocesses (`NODE_V8_COVERAGE`, with Monocart or c8) does not map either:
+  the coverage of the code Vite transformed has offsets of its own, not the ones of the sources. node:test measures the
+  test files, their subprocesses and their worker threads with `NODE_V8_COVERAGE` and merges them, and node runs
+  TypeScript by stripping its types in place, the offsets of the sources kept. This is why expect-test runs on
+  node:test.
+- **The coverage of a module mocked.** The module mocks of node:test (`mock.module`), and quibble, run off-thread module
+  hooks: the thread of the hooks compiles the module mocked and records a coverage of zero under its URL, which node
+  merges over the one of the tests by URL alone (nodejs/node#65946). A module covered at 92% by its tests was reported at
+  11% once another test file mocked it. expect-test mocks by in-thread hooks of its own (`module.registerHooks`), which
+  compile nothing on another thread. This one is a problem of node:test only: `vi.mock` goes through the module runner of
+  Vite, not through the loader hooks of node, so the hooks change nothing for Vitest.
+
 ## The API
 
 - `describe`, `it`, with `.each(table)` (its name with `%s`, `%d`, `%i`, `%j`, `%o`), `.skipIf(condition)`,
