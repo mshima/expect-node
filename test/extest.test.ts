@@ -1,3 +1,5 @@
+import type * as Path from 'node:path';
+
 import { describe, expect, extest, it } from '../src/index.ts';
 
 import type * as Double from './fixtures/double.ts';
@@ -69,6 +71,12 @@ describe('the module mocks of extest', () => {
     const fn = extest.fn((value: number) => value);
     extest.mocked(fn).mockReturnValue(3);
     expect(fn(1)).toBe(3);
+  });
+
+  it('mocks a module of a default export only, and gives a module by a bare specifier', async () => {
+    await extest.mock('./fixtures/default.ts', { default: 7 });
+    expect((await import('./fixtures/default.ts')).default).toBe(7);
+    expect((await extest.importActual<typeof Path>('node:path')).sep).toBe('/');
   });
 
   it('gives the module itself again', async () => {

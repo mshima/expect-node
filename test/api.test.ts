@@ -31,6 +31,18 @@ describe('the API of Jest and Vitest', () => {
     expect(value * 2).toBe(doubled);
   });
 
+  it('takes a timeout after the function', () => {
+    expect(1).toBe(1);
+  }, 1000);
+
+  it.each([[1, 2]])('names a case with a %% and its values: %s', { timeout: 1000 }, (value, doubled) => {
+    expect(value * 2).toBe(doubled);
+  });
+
+  it.skipIf(false)('runs a test not skipped, with its options', { timeout: 1000 }, () => {
+    expect(1).toBe(1);
+  });
+
   it.skipIf(true)('skips a test when told', () => {
     throw new Error('not run');
   });

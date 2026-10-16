@@ -18,6 +18,8 @@ const withMessage = <T extends object>(matchers: T, message: string): T =>
     get: (target, property, receiver) => {
       const value: unknown = Reflect.get(target, property, receiver);
       if (typeof value === 'object' && value !== null) return withMessage(value, message);
+      // A property of the matchers that is not a matcher, like a number: as it is.
+      /* node:coverage ignore next */
       if (typeof value !== 'function') return value;
       const fail = (error: unknown) => {
         if (error instanceof Error) error.message = `${message}\n\n${error.message}`;
@@ -94,6 +96,8 @@ const snapshotFiles = new Map<string, { state: SnapshotState; failed: boolean; s
 const snapshotFileOf = (testPath: string) => {
   let file = snapshotFiles.get(testPath);
   if (!file) {
+    // By the environment of the run: in CI or not, the --update-snapshot of the bin.
+    /* node:coverage ignore next */
     const updateSnapshot = (process.env.UPDATE_SNAPSHOT ?? (process.env.CI ? 'none' : 'new')) as 'all' | 'new' | 'none';
     const state = new snapshots!.SnapshotState(join(dirname(testPath), '__snapshots__', `${basename(testPath)}.snap`), {
       updateSnapshot,
@@ -117,6 +121,8 @@ nodeTest.after(() => {
 /** The URL of the module calling a function of this one, to resolve its relative specifiers. */
 const callerUrl = () => {
   const site = getCallSites().find(({ scriptName }) => scriptName && scriptName !== import.meta.url && scriptName !== import.meta.filename);
+  // A path instead of a URL, a CommonJS module calling.
+  /* node:coverage ignore next */
   return site!.scriptName.startsWith('file:') ? site!.scriptName : new URL(`file://${site!.scriptName}`).href;
 };
 

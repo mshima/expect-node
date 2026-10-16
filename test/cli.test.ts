@@ -36,6 +36,13 @@ describe('the expect-test bin', () => {
     expect(await run('--update-snapshot', 'plain.check.ts')).toMatchObject({ code: 0 });
   });
 
+  it('runs the test files of the default patterns, the coverage without minimum', async () => {
+    const { stdout } = await promisify(execFile)(process.execPath, [cli, '--coverage'], {
+      cwd: join(import.meta.dirname, 'fixtures/defaults'),
+    });
+    expect(stdout).toContain('runs by the default patterns');
+  });
+
   it('takes a configuration given, else none', async () => {
     expect(await run('--config', join(project, 'expect-test.config.ts'), 'sum.check.ts')).toMatchObject({ code: 0 });
     // Without a configuration: the file given alone, without the setup nor the modules of the project.
