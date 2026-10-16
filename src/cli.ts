@@ -16,9 +16,18 @@ import type { Config } from './config.ts';
 delete process.env.NODE_TEST_CONTEXT;
 
 const { values, positionals } = parseArgs({
-  options: { coverage: { type: 'boolean' }, config: { type: 'string' } },
+  options: {
+    coverage: { type: 'boolean' },
+    config: { type: 'string' },
+    'update-snapshot': { type: 'boolean' },
+    updateSnapshot: { type: 'boolean' },
+  },
   allowPositionals: true,
 });
+// Every snapshot written again, by the test files, which inherit the environment (see the snapshots of index.ts).
+if (values['update-snapshot'] || values.updateSnapshot) {
+  process.env.UPDATE_SNAPSHOT = 'all';
+}
 
 const CONFIG_FILES = ['expect-test.config.ts', 'expect-test.config.mts', 'expect-test.config.js', 'expect-test.config.mjs'];
 const configFile = values.config ? resolve(values.config) : CONFIG_FILES.map(file => resolve(file)).find(file => existsSync(file));

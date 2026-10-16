@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, afterEach, describe, expect, it } from '../src/index.ts';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, test } from '../src/index.ts';
 
 describe('the API of Jest and Vitest', () => {
   const calls: string[] = [];
@@ -62,4 +62,12 @@ describe('expect', () => {
   it('has the asymmetric matchers of Jest', () => {
     expect({ a: 1, b: [1, 2] }).toMatchObject({ b: expect.arrayContaining([2]) });
   });
+});
+
+describe('test', () => {
+  test('is it', () => {
+    expect(test).toBe(it);
+  });
+
+  it.todo('reports a test to write');
 });

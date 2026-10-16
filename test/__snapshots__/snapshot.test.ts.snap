@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`snapshots matches a value against its snapshot, in the file of jest 1`] = `
+{
+  "list": [
+    1,
+    2,
+  ],
+  "name": "expect-test",
+}
+`;
+
+exports[`snapshots matches the error thrown against its snapshot 1`] = `"thrown"`;

@@ -1,5 +1,7 @@
 import { describe, expect, extest, it } from '../src/index.ts';
 
+import type * as Double from './fixtures/double.ts';
+
 await extest.mock('./fixtures/double.ts', { double: (value: number) => value * 3 });
 // Imported once its modules are mocked.
 const { quadruple } = await import('./fixtures/math.ts');
@@ -48,5 +50,32 @@ describe('extest', () => {
     expect(process.env.PATH).toBeDefined();
     expect('expectTestStubbed' in globalThis).toBe(false);
     expect(typeof setTimeout).toBe('function');
+  });
+});
+
+describe('the module mocks of extest', () => {
+  it('mocks every export without exports given, and gives them', async () => {
+    const mocked = await extest.mock<typeof Double>('./fixtures/double.ts');
+    expect(extest.isMockFunction(mocked.double)).toBe(true);
+    mocked.half.mockReturnValue(7);
+    expect((await import('./fixtures/double.ts')).half(4)).toBe(7);
+  });
+
+  it('gives the module itself, mocked or not, and a value typed as its mock', async () => {
+    await extest.doMock('./fixtures/double.ts', { half: () => 0 });
+    expect((await extest.importActual<typeof Double>('./fixtures/double.ts')).half(4)).toBe(2);
+    extest.doUnmock('./fixtures/double.ts');
+    expect((await extest.importActual<typeof Double>('./fixtures/double.ts')).half(4)).toBe(2);
+    const fn = extest.fn((value: number) => value);
+    extest.mocked(fn).mockReturnValue(3);
+    expect(fn(1)).toBe(3);
+  });
+
+  it('gives the module itself again', async () => {
+    extest.unmock('./fixtures/double.ts');
+    expect((await import('./fixtures/double.ts')).half(4)).toBe(2);
+    await extest.mock('./fixtures/double.ts', { half: () => 0 });
+    extest.resetModules();
+    expect((await import('./fixtures/double.ts')).half(4)).toBe(2);
   });
 });

@@ -4,11 +4,13 @@
  * in-thread hooks of its own (see mocked). Run the tests with the expect-test bin (see cli.ts).
  */
 import { registerHooks } from 'node:module';
-import * as test from 'node:test';
+import { basename, dirname, join } from 'node:path';
+import * as nodeTest from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { format, getCallSites } from 'node:util';
 
 import { expect as jestExpect } from 'expect';
-import { ModuleMocker } from 'jest-mock';
+import { type Mocked, ModuleMocker } from 'jest-mock';
 
 /** The matchers of an assertion, each failure told after the message given (`expect(value, message)` of Vitest). */
 const withMessage = <T extends object>(matchers: T, message: string): T =>
@@ -40,11 +42,95 @@ export const expect = Object.assign(
   jestExpect,
 );
 
+declare module 'expect' {
+  interface Matchers<R extends void | Promise<void>> {
+    /** The value against its snapshot, in `__snapshots__/<test file>.snap` (jest-snapshot, an optional peer dependency). */
+    toMatchSnapshot(propertiesOrHint?: object | string, hint?: string): R;
+    /** The value against its snapshot written in the test (jest-snapshot, an optional peer dependency). */
+    toMatchInlineSnapshot(propertiesOrSnapshot?: object | string, inlineSnapshot?: string): R;
+    toThrowErrorMatchingSnapshot(hint?: string): R;
+    toThrowErrorMatchingInlineSnapshot(inlineSnapshot?: string): R;
+  }
+}
+
+/**
+ * The snapshots of Jest and esmocha, by jest-snapshot when it is installed: the same files (`__snapshots__/<test
+ * file>.snap`), the same names (the titles of the suites and of the test, by spaces) and format. Updated by
+ * `UPDATE_SNAPSHOT` (`all`, `new` or `none`, the `--update-snapshot` of the bin gives `all`): the new ones written
+ * by default, none in CI.
+ */
+// Without jest-snapshot, which its tests have.
+/* node:coverage ignore next */
+const snapshots = await import('jest-snapshot').catch(() => undefined);
+const SNAPSHOT_MATCHERS = [
+  'toMatchSnapshot',
+  'toMatchInlineSnapshot',
+  'toThrowErrorMatchingSnapshot',
+  'toThrowErrorMatchingInlineSnapshot',
+] as const;
+if (snapshots) {
+  jestExpect.extend(Object.fromEntries(SNAPSHOT_MATCHERS.map(name => [name, snapshots[name]])) as never);
+  Object.assign(jestExpect, { addSnapshotSerializer: snapshots.addSerializer });
+  // Without jest-snapshot, which its tests have.
+  /* node:coverage disable */
+} else {
+  jestExpect.extend(
+    Object.fromEntries(
+      SNAPSHOT_MATCHERS.map(name => [
+        name,
+        () => {
+          throw new Error(`${name} needs jest-snapshot, an optional peer dependency of expect-test: npm install --save-dev jest-snapshot`);
+        },
+      ]),
+    ),
+  );
+}
+/* node:coverage enable */
+type SnapshotState = InstanceType<NonNullable<typeof snapshots>['SnapshotState']>;
+/** The state of expect the snapshot matchers read (snapshotState, currentTestName, testPath), not in its types. */
+const setSnapshotState = (state: Record<string, unknown>) => jestExpect.setState(state);
+/** The snapshots of each test file, whether a test of it failed, and its tests skipped. */
+const snapshotFiles = new Map<string, { state: SnapshotState; failed: boolean; skipped: Set<string> }>();
+const snapshotFileOf = (testPath: string) => {
+  let file = snapshotFiles.get(testPath);
+  if (!file) {
+    const updateSnapshot = (process.env.UPDATE_SNAPSHOT ?? (process.env.CI ? 'none' : 'new')) as 'all' | 'new' | 'none';
+    const state = new snapshots!.SnapshotState(join(dirname(testPath), '__snapshots__', `${basename(testPath)}.snap`), {
+      updateSnapshot,
+      snapshotFormat: { escapeString: false, printBasicPrototype: false },
+      rootDir: process.cwd(),
+    });
+    file = { state, failed: false, skipped: new Set() };
+    snapshotFiles.set(testPath, file);
+  }
+  return file;
+};
+// At the end of the test file: the snapshots of its tests not run removed (an update of all of them, none failed), saved.
+nodeTest.after(() => {
+  for (const { state, failed, skipped } of snapshotFiles.values()) {
+    for (const name of skipped) state.markSnapshotsAsCheckedForTest(name);
+    if (!failed) state.removeUncheckedKeys();
+    state.save();
+  }
+});
+
+/** The URL of the module calling a function of this one, to resolve its relative specifiers. */
+const callerUrl = () => {
+  const site = getCallSites().find(({ scriptName }) => scriptName && scriptName !== import.meta.url && scriptName !== import.meta.filename);
+  return site!.scriptName.startsWith('file:') ? site!.scriptName : new URL(`file://${site!.scriptName}`).href;
+};
+
+/** The URL of a module, a relative specifier from the module calling. */
+const urlOf = (specifier: string) => (specifier.startsWith('.') ? new URL(specifier, callerUrl()).href : import.meta.resolve(specifier));
+
+/** The titles of the suites being declared, for the names of their tests. */
+const suites: string[] = [];
+
 /** What a test gets: skip ends it skipped, like the context of Vitest. */
 export type TestContext = { skip: (message?: string) => never };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Fn = (context: TestContext) => any;
-type Options = { timeout?: number; skip?: boolean; only?: boolean };
+type Options = { timeout?: number; skip?: boolean; only?: boolean; todo?: boolean };
 /** A test or a suite: its name, its options or not, its function, the timeout of Jest and Vitest after it. */
 type Declare = (name: string, optionsOrFn?: Options | Fn, fnOrTimeout?: Fn | number) => void;
 
@@ -58,6 +144,8 @@ type Declaring = Declare & {
   runIf: (condition: unknown) => Declare;
   only: Declare;
   skip: Declare;
+  /** A test to write, reported as such. */
+  todo: (name: string) => void;
 };
 
 /** The name of a case of a table, its placeholders (%s, %d, %i, %j, %o) replaced by its values in order. */
@@ -69,9 +157,15 @@ const nameOf = (name: string, args: readonly unknown[]) => {
 /** Thrown by skip, to end the test, which is then not failed. */
 const SKIPPED = Symbol('skipped');
 
-/** The function of a test with the context of Vitest: node gives a callback to a function of two parameters. */
+/** A test: its name with the titles of its suites, and its file, the ones of its snapshots. */
+type Identity = { name: string; testPath: string };
+
+/**
+ * The function of a test with the context of Vitest (node gives a callback to a function of two parameters), and the
+ * snapshots of its file.
+ */
 const withContext =
-  (fn: Fn) =>
+  (fn: Fn, { name, testPath }: Identity) =>
   async (t: { skip: (message?: string) => void }): Promise<void> => {
     const context: TestContext = {
       skip: message => {
@@ -79,10 +173,19 @@ const withContext =
         throw SKIPPED;
       },
     };
+    const file = snapshots && snapshotFileOf(testPath);
+    if (file) setSnapshotState({ snapshotState: file.state, currentTestName: name, testPath });
     try {
       await fn(context);
     } catch (error) {
-      if (error !== SKIPPED) throw error;
+      if (error === SKIPPED) {
+        file?.skipped.add(name);
+        return;
+      }
+      if (file) file.failed = true;
+      throw error;
+    } finally {
+      if (file) setSnapshotState({ snapshotState: undefined, currentTestName: undefined, testPath: undefined });
     }
   };
 
@@ -115,24 +218,45 @@ const declaring = (declare: (name: string, options: Options, fn?: Fn) => unknown
     runIf: (condition: unknown) => withOptions({ skip: !condition }),
     only: withOptions({ only: true }),
     skip: withOptions({ skip: true }),
+    todo: (name: string) => declared(name, { todo: true }),
   });
 };
 
 // The timeout of a suite of Vitest is the one of each of its tests, the one given to the runner: a timeout of node is
 // the one of the whole suite.
 export const describe = declaring((name, { timeout: _timeout, ...options }, fn) =>
-  test.describe(name, options, fn && (() => void fn({} as TestContext))),
+  nodeTest.describe(
+    name,
+    options,
+    fn &&
+      (() => {
+        // Declared at once: the tests declared in it are of this suite.
+        suites.push(name);
+        try {
+          void fn({} as TestContext);
+        } finally {
+          suites.pop();
+        }
+      }),
+  ),
 );
-export const it = declaring((name, options, fn) => test.it(name, options, fn && withContext(fn)));
+export const it = declaring((name, options, fn) => {
+  const identity = { name: [...suites, name].join(' '), testPath: fileURLToPath(callerUrl()) };
+  // A test skipped keeps its snapshots.
+  if (options.skip && snapshots) snapshotFileOf(identity.testPath).skipped.add(identity.name);
+  return nodeTest.it(name, options, fn && withContext(fn, identity));
+});
+/** The `test` of Jest and Vitest. */
+export const test = it;
 /** A hook, its timeout after its function like Jest and Vitest. */
 const hook =
   (register: (fn: () => Promise<void>, options: { timeout?: number }) => void) =>
   (fn: () => unknown, timeout?: number): void =>
     register(async () => void (await fn()), timeout === undefined ? {} : { timeout });
-export const beforeAll = hook((fn, options) => test.before(fn, options));
-export const afterAll = hook((fn, options) => test.after(fn, options));
-export const beforeEach = hook((fn, options) => test.beforeEach(fn, options));
-export const afterEach = hook((fn, options) => test.afterEach(fn, options));
+export const beforeAll = hook((fn, options) => nodeTest.before(fn, options));
+export const afterAll = hook((fn, options) => nodeTest.after(fn, options));
+export const beforeEach = hook((fn, options) => nodeTest.beforeEach(fn, options));
+export const afterEach = hook((fn, options) => nodeTest.afterEach(fn, options));
 
 const mocker = new ModuleMocker(globalThis);
 
@@ -141,7 +265,9 @@ const mocker = new ModuleMocker(globalThis);
  * hooks: the module mocks of node (and quibble) run off-thread hooks, whose thread compiles the module and records a
  * coverage of zero under its URL, which node merges over the one of the tests (nodejs/node#65946).
  */
-const mocked = new Map<string, Record<string, unknown>>();
+const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; version: number }>();
+/** Each mock of a module a URL of its own: node keeps a module by its URL, a module mocked again is another one. */
+let mocks = 0;
 const MOCKED = Symbol.for('expect-test.mocked');
 const MOCK_PROTOCOL = 'expect-test-mock:';
 (globalThis as Record<symbol, unknown>)[MOCKED] = mocked;
@@ -149,13 +275,15 @@ const isIdentifier = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
 registerHooks({
   resolve: (specifier, context, nextResolve) => {
     const resolved = nextResolve(specifier, context);
-    return mocked.has(resolved.url) ? { url: `${MOCK_PROTOCOL}${resolved.url}`, shortCircuit: true } : resolved;
+    const mock = mocked.get(resolved.url);
+    return mock ? { url: `${MOCK_PROTOCOL}${mock.version}:${resolved.url}`, shortCircuit: true } : resolved;
   },
   load: (url, context, nextLoad) => {
     if (!url.startsWith(MOCK_PROTOCOL)) return nextLoad(url, context);
-    const exports = mocked.get(url.slice(MOCK_PROTOCOL.length))!;
+    const of = url.slice(url.indexOf(':', MOCK_PROTOCOL.length) + 1);
+    const { exports } = mocked.get(of)!;
     const names = Object.keys(exports).filter(name => name !== 'default' && isIdentifier(name));
-    const read = `globalThis[Symbol.for('expect-test.mocked')].get(${JSON.stringify(url.slice(MOCK_PROTOCOL.length))})`;
+    const read = `globalThis[Symbol.for('expect-test.mocked')].get(${JSON.stringify(of)}).exports`;
     const source = [
       `const exports = ${read};`,
       ...(names.length > 0 ? [`export const { ${names.join(', ')} } = exports;`] : []),
@@ -167,12 +295,6 @@ registerHooks({
 /** The environment and the globals as they were before a test stubbed them. */
 const envs = new Map<string, string | undefined>();
 const globals = new Map<string, { value: unknown; had: boolean }>();
-
-/** The URL of the module calling a function of this one, to resolve its relative specifiers. */
-const callerUrl = () => {
-  const site = getCallSites().find(({ scriptName }) => scriptName && scriptName !== import.meta.url && scriptName !== import.meta.filename);
-  return site!.scriptName.startsWith('file:') ? site!.scriptName : new URL(`file://${site!.scriptName}`).href;
-};
 
 /**
  * The mock functions of jest-mock, the module mocks, the environment and the globals stubbed for a test: the `vi` of
@@ -188,16 +310,51 @@ export const extest = {
   /**
    * Mocks a module for the imports after it: import the module under test after it (`await import`), not before, as
    * Vitest hoists vi.mock. Its exports over the ones of the module itself (a factory gets them, like importOriginal),
-   * the modules importing other names of it still linking.
+   * the modules importing other names of it still linking; without them, every export mocked by jest-mock (its
+   * functions mock functions), like esmocha. Gives the exports of the mock.
    */
-  mock: async (
+  mock: (async <T extends Record<string, unknown> = Record<string, unknown>>(
     specifier: string,
-    exports: Record<string, unknown> | ((importOriginal: <T = Record<string, unknown>>() => Promise<T>) => unknown),
-  ) => {
-    const url = specifier.startsWith('.') ? new URL(specifier, callerUrl()).href : import.meta.resolve(specifier);
-    const original = (await import(url)) as Record<string, unknown>;
-    const given = (typeof exports === 'function' ? await exports(async <T>() => original as T) : exports) as Record<string, unknown>;
-    mocked.set(url, { ...original, ...given });
+    exports?: Partial<T> | ((importOriginal: <O = T>() => Promise<O>) => unknown),
+  ): Promise<T> => {
+    const url = urlOf(specifier);
+    // The module itself, not a mock of it before: the import of a module mocked gives the mock.
+    const original = mocked.get(url)?.actual ?? ((await import(url)) as Record<string, unknown>);
+    const given =
+      exports === undefined
+        ? mocker.generateFromMetadata(mocker.getMetadata(original)!)
+        : ((typeof exports === 'function' ? await exports(async <O>() => original as O) : exports) as Record<string, unknown>);
+    const module = { ...original, ...given };
+    mocked.set(url, { exports: module, actual: original, version: ++mocks });
+    return module as T;
+  }) as {
+    <T extends Record<string, unknown> = Record<string, unknown>>(specifier: string): Promise<Mocked<T>>;
+    <T extends Record<string, unknown> = Record<string, unknown>>(
+      specifier: string,
+      exports: Partial<T> | ((importOriginal: <O = T>() => Promise<O>) => unknown),
+    ): Promise<T>;
+  },
+  /** The module itself again for the imports after it: the ones before keep the mock. */
+  unmock: (specifier: string) => {
+    mocked.delete(urlOf(specifier));
+  },
+  /** The module itself, mocked or not: the `requireActual` of Jest, the `importActual` of Vitest. */
+  importActual: async <T = Record<string, unknown>>(specifier: string): Promise<T> => {
+    const url = urlOf(specifier);
+    return (mocked.get(url)?.actual ?? (await import(url))) as T;
+  },
+  /** A value typed as its mock, like the `mocked` of Jest and Vitest. */
+  mocked: mocker.mocked.bind(mocker),
+  /** Every module mocked itself again, for the imports after it. */
+  resetModules: () => {
+    mocked.clear();
+  },
+  // The module mocks are never hoisted: doMock and doUnmock of Jest and Vitest are mock and unmock.
+  get doMock() {
+    return extest.mock;
+  },
+  get doUnmock() {
+    return extest.unmock;
   },
   /** Sets a variable of the environment for the test, undefined deleting it: given back after it (see unstubAllEnvs). */
   stubEnv: (name: string, value: string | undefined) => {
@@ -228,7 +385,7 @@ export const extest = {
 };
 
 // Like Vitest with unstubEnvs and unstubGlobals: what a test stubbed given back after it.
-test.afterEach(() => {
+nodeTest.afterEach(() => {
   extest.unstubAllEnvs();
   extest.unstubAllGlobals();
 });

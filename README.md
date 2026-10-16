@@ -46,25 +46,40 @@ Two problems of coverage, which expect-test solves apart:
 
 ## The API
 
-- `describe`, `it`, with `.each(table)` (its name with `%s`, `%d`, `%i`, `%j`, `%o`), `.skipIf(condition)`,
-  `.runIf(condition)`, `.only` and `.skip`; the options before the function (`{ timeout }`), or the timeout after it.
+The names Jest and Vitest share, so that a migration renames the imports and `vi` or `jest`:
+
+- `describe`, `it` (and `test`), with `.each(table)` (its name with `%s`, `%d`, `%i`, `%j`, `%o`), `.skipIf(condition)`,
+  `.runIf(condition)`, `.only`, `.skip` and `.todo(name)`; the options before the function (`{ timeout }`), or the
+  timeout after it.
   The function of a test gets a context whose `skip()` ends it skipped.
 - `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, a timeout after the function.
 - `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`).
 - `extest`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
-  - `fn`, `spyOn`, `isMockFunction`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock.
+  - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock.
   - `await extest.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, a
-    relative specifier from the calling file. Its exports are given over the ones of the module, so the modules
-    importing other names of it still link. Unlike `vi.mock`, it is not hoisted: import the module under test after
+    relative specifier from the calling file, and gives its exports. The exports given are over the ones of the module,
+    so the modules importing other names of it still link; without them, every export is mocked by jest-mock (its
+    functions mock functions). `unmock(specifier)` and `resetModules()` give the module itself again to the imports
+    after them, `importActual(specifier)` gives it mocked or not; `doMock` and `doUnmock` are `mock` and `unmock`. Unlike `vi.mock`, it is not hoisted: import the module under test after
     it, with `await import(...)`. The mocks are in-thread hooks (`module.registerHooks`): the module mocks of node run
     off-thread hooks, whose thread records a coverage of zero for the module mocked, which node merges over the one of
     the tests (nodejs/node#65946).
   - `stubEnv(name, value)` (undefined deletes it), `stubGlobal(name, value)`: given back after each test
     (`unstubAllEnvs`, `unstubAllGlobals`).
 
+## Snapshots
+
+With `jest-snapshot` installed, an optional peer dependency (`npm install --save-dev jest-snapshot`): `toMatchSnapshot`,
+`toMatchInlineSnapshot`, `toThrowErrorMatchingSnapshot`, `toThrowErrorMatchingInlineSnapshot` and
+`expect.addSnapshotSerializer`, the snapshot files of Jest and esmocha read and written as they are: in
+`__snapshots__/<test file>.snap`, named by the titles of the suites and of the test joined by spaces, in the format of
+Jest 29 and later. The new snapshots are written, but in CI (`CI` set); `--update-snapshot` of the bin writes every
+one again, and removes the ones of the tests no longer there when no test of the file failed (`UPDATE_SNAPSHOT=all`,
+or `new`, or `none`).
+
 ## The bin
 
-`extest [--coverage] [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
+`extest [--coverage] [--update-snapshot] [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
 
 The configuration is an `expect-test.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:

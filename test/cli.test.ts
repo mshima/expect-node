@@ -32,6 +32,10 @@ describe('the expect-test bin', () => {
     expect(stdout).toContain('function coverage does not meet threshold of 100%');
   });
 
+  it('updates every snapshot with --update-snapshot, given to the test files', async () => {
+    expect(await run('--update-snapshot', 'plain.check.ts')).toMatchObject({ code: 0 });
+  });
+
   it('takes a configuration given, else none', async () => {
     expect(await run('--config', join(project, 'expect-test.config.ts'), 'sum.check.ts')).toMatchObject({ code: 0 });
     // Without a configuration: the file given alone, without the setup nor the modules of the project.
