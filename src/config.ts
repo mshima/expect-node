@@ -18,6 +18,11 @@ export type Config = {
    * the terminal or to the file; `spec` to the terminal when none. The `--reporter` of the bin replaces them.
    */
   reporters?: string[];
+  /**
+   * The `this` of mocha in the tests, the suites and the hooks, for a migration from mocha or esmocha: `this.skip()`, and
+   * `this.timeout(ms)` of a suite, the timeout of its tests. Deprecated: each warns once.
+   */
+  mocha?: boolean;
   /** The coverage of a run with --coverage: the files it is measured on, and its minimum in percents. */
   coverage?: { include?: string[]; exclude?: string[]; lines?: number; branches?: number; functions?: number };
 };

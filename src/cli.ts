@@ -34,6 +34,9 @@ const CONFIG_FILES = ['expect-node.config.ts', 'expect-node.config.mts', 'expect
 const configFile = values.config ? resolve(values.config) : CONFIG_FILES.map(file => resolve(file)).find(file => existsSync(file));
 const config: Config = configFile ? ((await import(pathToFileURL(configFile).href)) as { default: Config }).default : {};
 
+// The `this` of mocha, by the test files, which inherit the environment (see mocha.ts).
+if (config.mocha) process.env.EXNODE_MOCHA = 'true';
+
 await config.setup?.();
 
 const { coverage = {} } = config;

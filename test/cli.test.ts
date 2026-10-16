@@ -24,8 +24,23 @@ describe('the expect-node bin', () => {
     expect(await run()).toMatchObject({ code: 0, stdout: expect.stringContaining('has the environment of the setup') });
   });
 
-  it('fails the run on a failed test, of the files given', async () => {
-    expect(await run('failing.ts')).toMatchObject({ code: 1, stdout: expect.stringContaining('fails') });
+  it('fails the run on a failed test, of the files given, located in its file', async () => {
+    const { code, stdout } = await run('failing.ts');
+    expect(code).toBe(1);
+    expect(stdout).toContain('test at failing.ts:3:1');
+    expect(stdout).toContain('the hook failed');
+  });
+
+  it('gives the this of mocha to the test files by the mocha configuration, each use deprecated', async () => {
+    const { code, stdout } = await promisify(execFile)(process.execPath, [cli], { cwd: join(import.meta.dirname, 'fixtures/mocha') }).then(
+      ({ stdout }) => ({ code: 0, stdout }),
+      (error: { code: number; stdout: string }) => error,
+    );
+    expect(code).toBe(1);
+    expect(stdout).toMatch(/ℹ pass 2\nℹ fail 0\nℹ cancelled 1\nℹ skipped 4\n/);
+    expect(stdout).toContain('test timed out after 1ms');
+    expect(stdout.match(/this\.skip\(\) of mocha is deprecated/g)).toHaveLength(1);
+    expect(stdout.match(/this\.timeout\(\) of mocha is deprecated/g)).toHaveLength(1);
   });
 
   it('fails the run on a coverage under its minimum', async () => {
