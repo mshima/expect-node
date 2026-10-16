@@ -1,4 +1,5 @@
 import { expect, it } from '../../../src/index.ts';
+
 import { sum } from './sum.ts';
 
 it('has the environment of the setup and the modules imported', () => {

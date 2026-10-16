@@ -63,4 +63,5 @@ not covered: put the `disable` at the end of the last line that runs.
 
 ## Requirements
 
-Node.js 22.15 or newer (`module.registerHooks`, `util.getCallSites`).
+Node.js 22.15 or newer (`module.registerHooks`, `util.getCallSites`); a configuration and tests in TypeScript need the
+type stripping of Node.js, on by default from 22.18.

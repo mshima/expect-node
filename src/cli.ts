@@ -27,8 +27,13 @@ const config: Config = configFile ? ((await import(pathToFileURL(configFile).hre
 await config.setup?.();
 
 const { coverage = {} } = config;
+/** The test files given, else the ones of the configuration, else the default patterns of node:test. */
+const testFiles = () => {
+  if (positionals.length > 0) return { files: positionals.map(file => resolve(file)) };
+  return config.files ? { globPatterns: config.files } : {};
+};
 const stream = run({
-  ...(positionals.length > 0 ? { files: positionals.map(file => resolve(file)) } : config.files ? { globPatterns: config.files } : {}),
+  ...testFiles(),
   execArgv: (config.import ?? []).flatMap(module => ['--import', resolve(module)]),
   ...(config.timeout === undefined ? {} : { timeout: config.timeout }),
   concurrency: config.concurrency ?? true,

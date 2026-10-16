@@ -11,7 +11,9 @@ describe('mocks', () => {
   });
 
   it('gives a factory the exports of the module', async () => {
-    await mocks.mock('./fixtures/math.ts', async importOriginal => ({ quadruple: (await importOriginal<{ quadruple: (value: number) => number }>()).quadruple }));
+    await mocks.mock('./fixtures/math.ts', async importOriginal => ({
+      quadruple: (await importOriginal<{ quadruple: (value: number) => number }>()).quadruple,
+    }));
     expect((await import('./fixtures/math.ts')).quadruple(2)).toBe(18);
   });
 
