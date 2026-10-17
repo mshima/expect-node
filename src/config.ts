@@ -7,10 +7,23 @@ export type Config = {
    * alias of a package to its sources. Given to them by their absolute path, a worker starting in another folder.
    */
   import?: string[];
+  /**
+   * Modules each test process imports before its test files, by their path from the cwd, not its worker threads nor
+   * its subprocesses (unlike `import`), like the setupFiles of Vitest: hooks of the tests, which are of each test file
+   * like the root hooks of mocha.
+   */
+  setupFiles?: string[];
   /** The timeout of each test and hook, in milliseconds. */
   timeout?: number;
   /** The test files run at once: true for as many as node:test chooses. */
   concurrency?: number | boolean;
+  /**
+   * The test files run by this many processes reused, true for as many as the cores (the `--workers <n>` of the bin, 0
+   * for none), like mocha --parallel: each runs a test file after the other, in a suite of its own, its module mocks
+   * and spies cleaned after it, and imports the modules of the code once for them, which is faster than a process per
+   * test file. The hooks of the setup files are of each test file.
+   */
+  workers?: number | true;
   /** Run once in the runner before the test files, which inherit its environment: a temporary folder they share. */
   setup?: () => unknown;
   /**

@@ -1,9 +1,9 @@
 /** The tests, the suites and the hooks of Jest and Vitest, declared to node:test. */
 import * as nodeTest from 'node:test';
 import { format } from 'node:util';
-import { compileFunction } from 'node:vm';
 
-import { callerSite, type Site } from './caller.ts';
+import { callAt, callerSite } from './caller.ts';
+import { ENV } from './env.ts';
 import { type MochaThis, mochaThis } from './mocha.ts';
 import { setSnapshotTest, snapshotFileOf } from './snapshots.ts';
 
@@ -19,27 +19,6 @@ const timeoutOf = (of: Suite | undefined): number | undefined => (of ? (of.timeo
 const skippedOf = (of: Suite | undefined): boolean => Boolean(of && (of.skipped || skippedOf(of.parent)));
 /** The next test skipped by a beforeEach, by the `this` of mocha. */
 let skipNext = false;
-
-/**
- * A function of node:test called from a line of the test file, the location node gives the test (it takes the one of
- * its caller, else expect-node).
- */
-type Call = (declare: unknown, args: unknown[]) => unknown;
-const calls = new Map<string, Call>();
-const callAt = ({ file, line, column }: Site, declare: unknown, args: unknown[]) => {
-  const key = `${file}:${line}:${column}`;
-  let call = calls.get(key);
-  if (!call) {
-    // The path, not the URL: the coverage of node takes the modules of a file: URL only.
-    call = compileFunction('return declare(...args)', ['declare', 'args'], {
-      filename: file,
-      lineOffset: line - 1,
-      columnOffset: column - 1 - 'return '.length,
-    }) as unknown as Call;
-    calls.set(key, call);
-  }
-  return call(declare, args);
-};
 
 /** What a test gets: skip ends it skipped, like the context of Vitest. */
 export type TestContext = { skip: (message?: string) => never };
@@ -178,6 +157,13 @@ export const it = declaring((title, options, fn) => {
 export const test = it;
 
 /**
+ * The hooks declared out of any suite while closed, by the setup files of a worker: declared again by it for each of its
+ * test files (see worker.ts), like the root hooks of mocha, as when each test file runs in a process of its own. Open
+ * while a worker imports a test file, and in the process of a test file.
+ */
+export const rootHooks = { open: process.env[ENV.worker] === undefined, deferred: [] as (() => void)[] };
+
+/**
  * A hook, its timeout after its function like Jest and Vitest; a function of a parameter ends by calling it (`done`, an
  * error failing the hook), like Jest and mocha. The `this.skip()` of mocha in a beforeAll skips the tests of its suite,
  * in a beforeEach the test.
@@ -191,20 +177,24 @@ const hook =
       skip(of);
       throw SKIPPED;
     });
-    callAt(callerSite(), register, [
-      async () => {
-        try {
-          await (fn.length > 0
-            ? new Promise<void>((resolve, reject) => {
-                void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
-              })
-            : (fn as (this: MochaThis) => unknown).call(self!));
-        } catch (error) {
-          if (error !== SKIPPED) throw error;
-        }
-      },
-      timeout === undefined ? {} : { timeout },
-    ]);
+    const site = callerSite();
+    const declare = () =>
+      callAt(site, register, [
+        async () => {
+          try {
+            await (fn.length > 0
+              ? new Promise<void>((resolve, reject) => {
+                  void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
+                })
+              : (fn as (this: MochaThis) => unknown).call(self!));
+          } catch (error) {
+            if (error !== SKIPPED) throw error;
+          }
+        },
+        timeout === undefined ? {} : { timeout },
+      ]);
+    if (!rootHooks.open && suite.parent === undefined) rootHooks.deferred.push(declare);
+    else declare();
   };
 export const beforeAll = hook(nodeTest.before, of => (of.skipped = true));
 export const afterAll = hook(nodeTest.after);

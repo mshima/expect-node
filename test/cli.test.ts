@@ -8,16 +8,18 @@ import { describe, expect, it } from '../src/index.ts';
 
 const cli = join(import.meta.dirname, '../src/cli.ts');
 const project = join(import.meta.dirname, 'fixtures/project');
-/** The run of the bin in the project: its output, and its exit code. */
-const run = async (...args: string[]) => {
+/** The run of the bin in a folder of the fixtures: its output, and its exit code. */
+const runIn = async (folder: string, ...args: string[]) => {
   try {
-    const { stdout } = await promisify(execFile)(process.execPath, [cli, ...args], { cwd: project });
+    const { stdout } = await promisify(execFile)(process.execPath, [cli, ...args], { cwd: join(import.meta.dirname, 'fixtures', folder) });
     return { code: 0, stdout };
   } catch (error) {
     const { code, stdout } = error as { code: number; stdout: string };
     return { code, stdout };
   }
 };
+/** The run of the bin in the project. */
+const run = (...args: string[]) => runIn('project', ...args);
 
 describe('the expect-node bin', () => {
   it('runs the test files of the configuration, with its setup and the modules it imports', async () => {
@@ -32,15 +34,29 @@ describe('the expect-node bin', () => {
   });
 
   it('gives the this of mocha to the test files by the mocha configuration, each use deprecated', async () => {
-    const { code, stdout } = await promisify(execFile)(process.execPath, [cli], { cwd: join(import.meta.dirname, 'fixtures/mocha') }).then(
-      ({ stdout }) => ({ code: 0, stdout }),
-      (error: { code: number; stdout: string }) => error,
-    );
+    const { code, stdout } = await runIn('mocha');
     expect(code).toBe(1);
     expect(stdout).toMatch(/ℹ pass 2\nℹ fail 0\nℹ cancelled 1\nℹ skipped 4\n/);
     expect(stdout).toContain('test timed out after 1ms');
     expect(stdout.match(/this\.skip\(\) of mocha is deprecated/g)).toHaveLength(1);
     expect(stdout.match(/this\.timeout\(\) of mocha is deprecated/g)).toHaveLength(1);
+  });
+
+  it('runs the test files by workers, each one file after the other, the hooks of the setup files and the mocks of each', async () => {
+    // One worker, the test files given in order: the hook of the setup file once per test file, the mock of the first
+    // not of the second, the setup file not imported by a worker thread.
+    const one = await runIn('pool', '--workers', '1', 'a.check.ts', 'b.check.ts', 'empty.check.ts');
+    expect(one.code).toBe(0);
+    expect(one.stdout.match(/setups: \d/g)).toEqual(['setups: 1', 'setups: 2']);
+    expect(one.stdout).toContain('ℹ pass 5\n');
+    // As many workers as the cores, the test files of the configuration.
+    const all = await runIn('pool');
+    expect(all.code).toBe(0);
+    expect(all.stdout).toContain('ℹ pass 5\n');
+  });
+
+  it('runs by workers the test files of the default patterns', async () => {
+    expect((await runIn('defaults', '--workers', '2')).stdout).toContain('runs by the default patterns');
   });
 
   it('fails the run on a coverage under its minimum', async () => {
