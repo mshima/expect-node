@@ -2,7 +2,7 @@
 import * as nodeTest from 'node:test';
 import { format } from 'node:util';
 
-import { callAt, callerSite } from './caller.ts';
+import { callAt, callerSite, type Site } from './caller.ts';
 import { ENV } from './env.ts';
 import { type MochaThis, mochaThis } from './mocha.ts';
 import { setSnapshotTest, snapshotFileOf } from './snapshots.ts';
@@ -168,16 +168,15 @@ export const rootHooks = { open: process.env[ENV.worker] === undefined, deferred
  * error failing the hook), like Jest and mocha. The `this.skip()` of mocha in a beforeAll skips the tests of its suite,
  * in a beforeEach the test.
  */
-type Hook = (this: MochaThis, done: (error?: unknown) => void) => unknown;
+export type Hook = (this: MochaThis, done: (error?: unknown) => void) => unknown;
 const hook =
   (register: typeof nodeTest.before, skip: (of: Suite) => void = () => undefined) =>
-  (fn: Hook, timeout?: number): void => {
+  (site: Site, fn: Hook, timeout?: number): void => {
     const of = suite;
     const self = mochaThis(() => {
       skip(of);
       throw SKIPPED;
     });
-    const site = callerSite();
     const declare = () =>
       callAt(site, register, [
         async () => {
@@ -196,10 +195,17 @@ const hook =
     if (!rootHooks.open && suite.parent === undefined) rootHooks.deferred.push(declare);
     else declare();
   };
-export const beforeAll = hook(nodeTest.before, of => (of.skipped = true));
-export const afterAll = hook(nodeTest.after);
-export const beforeEach = hook(nodeTest.beforeEach, () => (skipNext = true));
-export const afterEach = hook(nodeTest.afterEach);
+/** The hooks declared at a site, the one of a test file or of a module of hooks (see setup.ts). */
+export const hooksAt = {
+  beforeAll: hook(nodeTest.before, of => (of.skipped = true)),
+  afterAll: hook(nodeTest.after),
+  beforeEach: hook(nodeTest.beforeEach, () => (skipNext = true)),
+  afterEach: hook(nodeTest.afterEach),
+};
+export const beforeAll = (fn: Hook, timeout?: number) => hooksAt.beforeAll(callerSite(), fn, timeout);
+export const afterAll = (fn: Hook, timeout?: number) => hooksAt.afterAll(callerSite(), fn, timeout);
+export const beforeEach = (fn: Hook, timeout?: number) => hooksAt.beforeEach(callerSite(), fn, timeout);
+export const afterEach = (fn: Hook, timeout?: number) => hooksAt.afterEach(callerSite(), fn, timeout);
 /** The `before` and the `after` of mocha and esmocha. */
 export const before = beforeAll;
 export const after = afterAll;

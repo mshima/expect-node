@@ -43,16 +43,22 @@ describe('the expect-node bin', () => {
   });
 
   it('runs the test files by workers, each one file after the other, the hooks of the setup files and the mocks of each', async () => {
-    // One worker, the test files given in order: the hook of the setup file once per test file, the mock of the first
-    // not of the second, the setup file not imported by a worker thread.
+    // One worker, the test files given in order: the hooks of the setup file and of the mocha hooks once per test file,
+    // the mock of the first not of the second, the setup file not imported by a worker thread.
     const one = await runIn('pool', '--workers', '1', 'a.check.ts', 'b.check.ts', 'empty.check.ts');
     expect(one.code).toBe(0);
-    expect(one.stdout.match(/setups: \d/g)).toEqual(['setups: 1', 'setups: 2']);
+    expect(one.stdout.match(/setups: \d/g)).toEqual(['setups: 2', 'setups: 4']);
     expect(one.stdout).toContain('ℹ pass 5\n');
     // As many workers as the cores, the test files of the configuration.
     const all = await runIn('pool');
     expect(all.code).toBe(0);
     expect(all.stdout).toContain('ℹ pass 5\n');
+  });
+
+  it('fails the test files on a module of mocha hooks without them', async () => {
+    const { code, stdout } = await runIn('no-hooks');
+    expect(code).toBe(1);
+    expect(stdout).toContain('./none.mjs exports no mochaHooks');
   });
 
   it('runs by workers the test files of the default patterns', async () => {

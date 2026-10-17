@@ -7,8 +7,8 @@ export const ENV = {
   updateSnapshot: 'UPDATE_SNAPSHOT',
   /** `true`, the `this` of mocha (see mocha.ts), by `mocha`. */
   mocha: 'EXNODE_MOCHA',
-  /** The setup files, as JSON (see setup.ts), by `setupFiles`. */
-  setupFiles: 'EXNODE_SETUP_FILES',
+  /** The setup files and the modules of mocha hooks, as JSON (see setup.ts), by `setupFiles` and `mochaHooks`. */
+  setup: 'EXNODE_SETUP',
   /** The socket of the queue of the test files of the workers (see pool.ts and worker.ts), by `workers`. */
   worker: 'EXNODE_WORKER',
 } as const;

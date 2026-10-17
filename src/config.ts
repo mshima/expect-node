@@ -13,6 +13,13 @@ export type Config = {
    * like the root hooks of mocha.
    */
   setupFiles?: string[];
+  /**
+   * The root hook plugins of mocha, imported like the setup files: modules exporting `mochaHooks` (`beforeAll`,
+   * `beforeEach`, `afterAll`, `afterEach`, each a hook or an array of them; or a function giving them), by their
+   * specifier from the cwd, a package (`yeoman-test/mocha-cleanup`) or a path. Their hooks are of each test file, like
+   * the ones of mocha --parallel.
+   */
+  mochaHooks?: string[];
   /** The timeout of each test and hook, in milliseconds. */
   timeout?: number;
   /** The test files run at once: true for as many as node:test chooses. */

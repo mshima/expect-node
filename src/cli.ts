@@ -41,24 +41,27 @@ const files = positionals.length > 0 ? positionals.map(file => resolve(file)) : 
 const testFiles = files ? { files } : { globPatterns: config.files };
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
 const workersPool = workers ? pool(files, config.files, workers) : undefined;
-const setupFiles = config.setupFiles?.map(file => resolve(file));
+/** The setup files and the modules of mocha hooks, by the test processes only (see setup.ts). */
+const setupFiles = (config.setupFiles ?? []).map(file => resolve(file));
+const mochaHooks = config.mochaHooks ?? [];
+const setup =
+  setupFiles.length + mochaHooks.length > 0 ? { files: setupFiles, mochaHooks, cwd: pathToFileURL(`${process.cwd()}/`).href } : undefined;
 
 // What the options and the configuration change in the test processes, which inherit the environment (see env.ts).
 Object.assign(process.env, {
   // Every snapshot written again.
   ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
   ...(config.mocha ? { [ENV.mocha]: 'true' } : {}),
-  ...(setupFiles ? { [ENV.setupFiles]: JSON.stringify(setupFiles) } : {}),
+  ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
   ...workersPool?.env,
 });
-// The setup files, imported by the test processes only (see setup.ts).
-const setup = setupFiles ? ['--import', ownModule('setup')] : [];
+const setupImport = setup ? ['--import', ownModule('setup')] : [];
 const stream = run({
   ...(workersPool?.options ?? {
     ...testFiles,
     concurrency: config.concurrency ?? true,
   }),
-  execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setup],
+  execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setupImport],
   ...(config.timeout === undefined ? {} : { timeout: config.timeout }),
   ...(values.coverage
     ? {

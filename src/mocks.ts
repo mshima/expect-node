@@ -55,9 +55,12 @@ registerHooks({
   },
 });
 
+/** The URL of a module, its specifier resolved from a module (or a folder, its URL ending by a slash). */
+export const resolveFrom = (specifier: string, parentURL: string) =>
+  import.meta.resolve(`${RESOLVE_PROTOCOL}${encodeURIComponent(JSON.stringify([specifier, parentURL]))}`);
+
 /** The URL of a module, its specifier resolved from the module calling (relative, a package, an import of its package). */
-export const urlOf = (specifier: string) =>
-  import.meta.resolve(`${RESOLVE_PROTOCOL}${encodeURIComponent(JSON.stringify([specifier, callerSite().url]))}`);
+export const urlOf = (specifier: string) => resolveFrom(specifier, callerSite().url);
 
 /** The module itself, not a mock of it: the import of a module mocked gives the mock. */
 export const actualOf = async (url: string) => mocked.get(url)?.actual ?? ((await import(url)) as Record<string, unknown>);
