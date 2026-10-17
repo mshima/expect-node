@@ -145,6 +145,23 @@ and its spies cleaned up after it, and the hooks of the setup files are of each 
 module or a global stays for the next one, as with mocha. The reporters, the summary and the coverage stay the ones of
 node:test.
 
+node:test has no such pool: `node --test` runs a test file by a process of its own (`--test-isolation=process`, its
+default, `--test-concurrency` of them at once), or all of them in one process (`--test-isolation=none`), and has no
+isolation by threads.
+
+| node:test                      | What it does                         | What it lacks                                                                                                                                                               |
+| ------------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--test-isolation=process`     | A process per test file, in parallel | Each imports the modules of the code again                                                                                                                                  |
+| `--test-isolation=none`        | Every test file in one process       | One core; it imports every test file before running any, so a module mock of one is seen by the ones before it, and a root hook runs once for all, not after each test file |
+| `--test-shard=<index>/<total>` | A share of the test files, by a run  | Meant for several CI machines: each run has its own report and coverage                                                                                                     |
+
+The workers are made of what node:test has: node:test runs them as ordinary test processes (`--test-isolation=process`),
+each its first test file, then the next ones of a queue the bin serves by a socket, each in a suite of its own once the
+previous one ended. So the reporters, the summary and the merge of the coverage stay node's.
+
+On generator-jhipster (312 test files, about 15,000 tests), the full suite ran in 66s by esmocha, 99s by a process per
+test file, and 65s by `workers: 8`.
+
 ### From mocha or esmocha
 
 `mocha: true` gives the tests, the suites and the hooks the `this` of mocha: `this.skip()` skips the test, in a suite or a
