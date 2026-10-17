@@ -5,6 +5,11 @@ over mocha. The runner, the timeouts and the coverage are node's: the coverage o
 or a worker thread counts too, and TypeScript runs as node strips it, without a transform between the tests and the
 code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
 
+node:test does not support threads: it runs each test file in a process of its own, or all of them in one, never in a
+worker thread nor in a process reused. On a large code, each test file importing it again makes node:test slower than
+mocha `--parallel`; expect-node adds the workers it lacks, processes reused like the ones of mocha, as fast as esmocha
+(see Workers).
+
 ```ts
 import { beforeAll, describe, expect, exnode, it } from 'expect-node';
 
@@ -39,6 +44,33 @@ bundler or source maps between the tests and the code.
   one does not export, which a transform may let through.
 - The runner, its parallelism, the timeouts and the coverage are node's: expect-node depends on `expect` and `jest-mock`
   only, and on `jest-snapshot` for the snapshots, when installed.
+
+## Workers
+
+Each test file runs in a process of its own, which imports again the modules of the code it tests. With `workers` in the
+configuration (`workers: true` for as many as the cores, see The bin) or `--workers <n>` (`0` for none), they run by
+that many processes reused, like mocha `--parallel`: each runs a test file after the other, in a suite named by its
+path, and imports the modules of the code once for them, which is several times faster when the test files import a
+large code. A test file starts after the previous one ended, its module mocks and its spies cleaned up after it, and the
+hooks of the setup files are of each test file; what else it changes in a module or a global stays for the next one, as
+with mocha. The reporters, the summary and the coverage stay the ones of node:test.
+
+node:test has no such pool: `node --test` runs a test file by a process of its own (`--test-isolation=process`, its
+default, `--test-concurrency` of them at once), or all of them in one process (`--test-isolation=none`), and has no
+isolation by threads.
+
+| node:test                      | What it does                         | What it lacks                                                                                                                                                               |
+| ------------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--test-isolation=process`     | A process per test file, in parallel | Each imports the modules of the code again                                                                                                                                  |
+| `--test-isolation=none`        | Every test file in one process       | One core; it imports every test file before running any, so a module mock of one is seen by the ones before it, and a root hook runs once for all, not after each test file |
+| `--test-shard=<index>/<total>` | A share of the test files, by a run  | Meant for several CI machines: each run has its own report and coverage                                                                                                     |
+
+The workers are made of what node:test has: node:test runs them as ordinary test processes (`--test-isolation=process`),
+each its first test file, then the next ones of a queue the bin serves by a socket, each in a suite of its own once the
+previous one ended. So the reporters, the summary and the merge of the coverage stay node's.
+
+On generator-jhipster (312 test files, about 15,000 tests), the full suite ran in 66s by esmocha, 99s by a process per
+test file, and 65s by `workers: 8`.
 
 ## Why node:test, and the module mocks by in-thread hooks
 
@@ -134,16 +166,6 @@ The modules of `import` are imported by the worker threads and the subprocesses 
 module hooks and aliases they need as well. The `setupFiles`, like the ones of Vitest, are imported by the test process
 alone: the hooks of the tests (a cleanup after each test file), which the threads and the subprocesses would otherwise
 run too, or whose dependencies would change them.
-
-### Workers
-
-Each test file runs in a process of its own, which imports again the modules of the code it tests. With `workers` (or
-`--workers <n>`, `0` for none), they run by that many processes reused, like mocha `--parallel`: each runs a test file
-after the other, in a suite named by its path, and imports the modules of the code once for them, which is several
-times faster when the test files import a large code. A test file starts after the previous one ended, its module mocks
-and its spies cleaned up after it, and the hooks of the setup files are of each test file; what else it changes in a
-module or a global stays for the next one, as with mocha. The reporters, the summary and the coverage stay the ones of
-node:test.
 
 ### From mocha or esmocha
 
