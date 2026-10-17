@@ -1,6 +1,6 @@
 {
   "name": "expect-node",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "node:test with the expect and mock API of Jest and Vitest, its coverage of subprocesses and workers included",
   "keywords": [
     "node:test",

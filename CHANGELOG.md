@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/mshima/expect-node/compare/expect-node-v0.2.0...expect-node-v0.2.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* the coverage whole after a mock: the modules imported before kept, and the coverage of instances merged ([#13](https://github.com/mshima/expect-node/issues/13)) ([b653fb3](https://github.com/mshima/expect-node/commit/b653fb318cfffd5f1b7c18389904d08d066ade15))
+
 ## [0.2.0](https://github.com/mshima/expect-node/compare/expect-node-v0.1.0...expect-node-v0.2.0) (2026-10-17)
 
 
