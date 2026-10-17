@@ -4,13 +4,14 @@
  * with the coverage of the files it includes, its minimum failing the run. A failed test fails the run.
  */
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, extname, resolve } from 'node:path';
 import { run } from 'node:test';
 import * as reporters from 'node:test/reporters';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import type { Config } from './config.ts';
+import { pool } from './pool.ts';
 
 // A runner, never a test file: run by a test (its own tests), node:test would take it for one of its files.
 delete process.env.NODE_TEST_CONTEXT;
@@ -22,6 +23,7 @@ const { values, positionals } = parseArgs({
     'update-snapshot': { type: 'boolean' },
     updateSnapshot: { type: 'boolean' },
     reporter: { type: 'string', multiple: true },
+    workers: { type: 'string' },
   },
   allowPositionals: true,
 });
@@ -45,11 +47,16 @@ const testFiles = () => {
   if (positionals.length > 0) return { files: positionals.map(file => resolve(file)) };
   return config.files ? { globPatterns: config.files } : {};
 };
+// The setup files, by the test processes only (see setup.ts).
+if (config.setupFiles) process.env.EXNODE_SETUP_FILES = JSON.stringify(config.setupFiles.map(file => resolve(file)));
+const setup = config.setupFiles ? ['--import', new URL(`./setup${extname(import.meta.url)}`, import.meta.url).href] : [];
+
+const workers = values.workers === undefined ? config.workers : Number(values.workers);
+const workersPool = workers ? pool(testFiles().files, config.files, workers) : undefined;
 const stream = run({
-  ...testFiles(),
-  execArgv: (config.import ?? []).flatMap(module => ['--import', resolve(module)]),
+  ...(workersPool?.options ?? { ...testFiles(), concurrency: config.concurrency ?? true }),
+  execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setup],
   ...(config.timeout === undefined ? {} : { timeout: config.timeout }),
-  concurrency: config.concurrency ?? true,
   ...(values.coverage
     ? {
         coverage: true,
@@ -64,6 +71,7 @@ const stream = run({
 stream.on('test:fail', () => {
   process.exitCode = 1;
 });
+if (workersPool) stream.once('close', workersPool.close);
 /**
  * A reporter, `<name>[:<file>]`: one of node:test (spec, tap, dot, junit, lcov) or the path of a module of one (its
  * default export), to the terminal or to the file.

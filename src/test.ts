@@ -1,5 +1,7 @@
 /** The tests, the suites and the hooks of Jest and Vitest, declared to node:test. */
+import { relative } from 'node:path';
 import * as nodeTest from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { format } from 'node:util';
 import { compileFunction } from 'node:vm';
 
@@ -177,6 +179,15 @@ export const it = declaring((title, options, fn) => {
 /** The `test` of Jest and Vitest. */
 export const test = it;
 
+/** A worker of the pool of the bin (see worker.ts), which runs its test files one after the other. */
+const WORKER = process.env.EXNODE_WORKER !== undefined;
+/**
+ * The hooks a worker declares out of its test files, by the setup files: declared again for each test file, like the
+ * root hooks of mocha, as when each test file runs in a process of its own.
+ */
+const rootHooks: (() => void)[] = [];
+let inFile = false;
+
 /**
  * A hook, its timeout after its function like Jest and Vitest; a function of a parameter ends by calling it (`done`, an
  * error failing the hook), like Jest and mocha. The `this.skip()` of mocha in a beforeAll skips the tests of its suite,
@@ -191,20 +202,25 @@ const hook =
       skip(of);
       throw SKIPPED;
     });
-    callAt(callerSite(), register, [
-      async () => {
-        try {
-          await (fn.length > 0
-            ? new Promise<void>((resolve, reject) => {
-                void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
-              })
-            : (fn as (this: MochaThis) => unknown).call(self!));
-        } catch (error) {
-          if (error !== SKIPPED) throw error;
-        }
-      },
-      timeout === undefined ? {} : { timeout },
-    ]);
+    const site = callerSite();
+    const declare = () =>
+      callAt(site, register, [
+        async () => {
+          try {
+            await (fn.length > 0
+              ? new Promise<void>((resolve, reject) => {
+                  void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
+                })
+              : (fn as (this: MochaThis) => unknown).call(self!));
+          } catch (error) {
+            if (error !== SKIPPED) throw error;
+          }
+        },
+        timeout === undefined ? {} : { timeout },
+      ]);
+    // A hook out of any test file of a worker: of each of its test files.
+    if (WORKER && !inFile && suite.parent === undefined) rootHooks.push(declare);
+    else declare();
   };
 export const beforeAll = hook(nodeTest.before, of => (of.skipped = true));
 export const afterAll = hook(nodeTest.after);
@@ -213,3 +229,19 @@ export const afterEach = hook(nodeTest.afterEach);
 /** The `before` and the `after` of mocha and esmocha. */
 export const before = beforeAll;
 export const after = afterAll;
+
+/**
+ * A test file of a worker, in a suite of its own (its relative path): its root hooks and its tests of it alone, then
+ * the cleanup, before the next test file is imported.
+ */
+export const testFile = (file: string, cleanup: () => void) =>
+  nodeTest.describe(relative(process.cwd(), file), async () => {
+    for (const declare of rootHooks) declare();
+    inFile = true;
+    try {
+      await import(pathToFileURL(file).href);
+    } finally {
+      inFile = false;
+      nodeTest.after(cleanup);
+    }
+  });

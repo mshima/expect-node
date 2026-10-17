@@ -16,8 +16,9 @@ const mocked = new Map<string, { exports: Record<string, unknown>; actual: Recor
 /** Each mock of a module a URL of its own: node keeps a module by its URL, a module mocked again is another one. */
 let mocks = 0;
 /**
- * The modules imported after a mock changed, each a module of its own again (but the packages and expect-node): the
- * module under test imported again sees the mocks, even when the test file imported it before, like quibble of esmocha.
+ * While a module is mocked, the modules imported after a mock changed are each a module of its own again (but the
+ * packages and expect-node): the module under test imported again sees the mocks, even when the test file imported it
+ * before, like quibble of esmocha.
  */
 let generation = 0;
 const MOCKED = Symbol.for('exnode.mocked');
@@ -25,7 +26,8 @@ const MOCK_PROTOCOL = 'exnode-mock:';
 /** A specifier resolved from another module (`exnode-resolve:<[specifier, parent URL] as JSON>`). */
 const RESOLVE_PROTOCOL = 'exnode-resolve:';
 const OWN = new URL('.', import.meta.url).href;
-const isFresh = (url: string) => generation > 0 && url.startsWith('file:') && !url.startsWith(OWN) && !url.includes('/node_modules/');
+// Only while a module is mocked: once none is, the modules imported before any mock are the ones of the imports again.
+const isFresh = (url: string) => mocked.size > 0 && url.startsWith('file:') && !url.startsWith(OWN) && !url.includes('/node_modules/');
 (globalThis as Record<symbol, unknown>)[MOCKED] = mocked;
 const isIdentifier = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
 registerHooks({
@@ -93,9 +95,10 @@ export const exnode = {
   restoreAllMocks,
   /**
    * Mocks a module for the imports after it: import the module under test after it (`await import`), as Vitest hoists
-   * vi.mock; a module imported before is imported again, the packages kept (see generation). Its exports over the ones of the module itself (a factory gets them, like importOriginal),
-   * the modules importing other names of it still linking; without them, every export mocked by jest-mock (its
-   * functions mock functions), like esmocha. Gives the exports of the mock.
+   * vi.mock; a module imported before is imported again, the packages kept (see generation). Its exports over the ones
+   * of the module itself (a factory gets them, like importOriginal), the modules importing other names of it still
+   * linking; without them, every export mocked by jest-mock (its functions mock functions), like esmocha. Gives the
+   * exports of the mock.
    */
   mock: (async <T extends Record<string, unknown> = Record<string, unknown>>(
     specifier: string,

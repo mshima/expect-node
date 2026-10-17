@@ -110,8 +110,12 @@ export default defineConfig({
   // The test files, the default patterns of node:test when none.
   files: ['packages/*/test/**/*.test.ts'],
   // Imported first by each test file and the workers it starts, by their absolute path.
-  import: ['test/setup.ts'],
+  import: ['test/hooks.ts'],
+  // Imported by each test process only, before its test files: hooks of the tests, of each test file.
+  setupFiles: ['test/setup.ts'],
   timeout: 600_000,
+  // The test files by processes reused, as many as the cores.
+  workers: true,
   // Run once in the runner: the test files inherit its environment.
   setup: () => {
     process.env.MY_CACHE = '/tmp/my-cache';
@@ -123,6 +127,21 @@ export default defineConfig({
 ```
 
 A failed test is located in its test file (`test at test/sum.test.ts:12:3`), the line of its `it`.
+
+The modules of `import` are imported by the worker threads and the subprocesses a test starts too (`--import`), for
+module hooks and aliases they need as well. The `setupFiles`, like the ones of Vitest, are imported by the test process
+alone: the hooks of the tests (a cleanup after each test file), which the threads and the subprocesses would otherwise
+run too, or whose dependencies would change them.
+
+### Workers
+
+Each test file runs in a process of its own, which imports again the modules of the code it tests. With `workers` (or
+`--workers <n>`, `0` for none), they run by that many processes reused, like mocha `--parallel`: each runs a test file
+after the other, in a suite named by its path, and imports the modules of the code once for them, which is several
+times faster when the test files import a large code. A test file starts after the previous one ended, its module mocks
+and its spies cleaned up after it, and the hooks of the setup files are of each test file; what else it changes in a
+module or a global stays for the next one, as with mocha. The reporters, the summary and the coverage stay the ones of
+node:test.
 
 ### From mocha or esmocha
 
