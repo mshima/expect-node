@@ -61,6 +61,13 @@ describe('the expect-node bin', () => {
     expect(stdout).toContain('./none.mjs exports no mochaHooks');
   });
 
+  it('keeps the modules imported before a mock and their coverage, else imports them again by reimport', async () => {
+    const keep = await runIn('reimport', '--coverage');
+    expect(keep.code).toBe(0);
+    expect(keep.stdout).toMatch(/lib\.ts +\| 100\.00 \| +100\.00 \| +100\.00/);
+    expect(await runIn('reimport', '--config', 'reimport.config.ts')).toMatchObject({ code: 0 });
+  });
+
   it('runs by workers the test files of the default patterns', async () => {
     expect((await runIn('defaults', '--workers', '2')).stdout).toContain('runs by the default patterns');
   });

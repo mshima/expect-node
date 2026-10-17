@@ -6,6 +6,7 @@
 import { registerHooks } from 'node:module';
 
 import { callerSite, OWN } from './caller.ts';
+import { ENV } from './env.ts';
 
 /**
  * The modules mocked, by URL: their exports, the ones of the module itself, and the generation of the mock, a URL of its
@@ -13,17 +14,21 @@ import { callerSite, OWN } from './caller.ts';
  */
 const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; generation: number }>();
 /**
- * Each change of the mocks. While a module is mocked, the modules imported after a change are each a module of its own
- * again (but the packages and expect-node): the module under test imported again sees the mocks, even when the test
- * file imported it before, like quibble of esmocha.
+ * Each change of the mocks. With the `reimport` of the configuration, while a module is mocked, the modules imported
+ * after a change are each a module of its own again (but the packages and expect-node): the module under test imported
+ * again sees the mocks, even when the test file imported it before, like quibble of esmocha. A module imported again is
+ * a second instance of it, which the coverage of node counts apart: the functions one of them does not run are not
+ * covered, so it is not the default.
  */
 let generation = 0;
+const REIMPORT = process.env[ENV.reimport] === 'true';
 const MOCKED = Symbol.for('exnode.mocked');
 const MOCK_PROTOCOL = 'exnode-mock:';
 /** A specifier resolved from another module (`exnode-resolve:<[specifier, parent URL] as JSON>`). */
 const RESOLVE_PROTOCOL = 'exnode-resolve:';
 // Only while a module is mocked: once none is, the modules imported before any mock are the ones of the imports again.
-const isFresh = (url: string) => mocked.size > 0 && url.startsWith('file:') && !url.startsWith(OWN) && !url.includes('/node_modules/');
+const isFresh = (url: string) =>
+  REIMPORT && mocked.size > 0 && url.startsWith('file:') && !url.startsWith(OWN) && !url.includes('/node_modules/');
 (globalThis as Record<symbol, unknown>)[MOCKED] = mocked;
 const isIdentifier = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
 registerHooks({

@@ -52,6 +52,7 @@ Object.assign(process.env, {
   // Every snapshot written again.
   ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
   ...(config.mocha ? { [ENV.mocha]: 'true' } : {}),
+  ...(config.reimport ? { [ENV.reimport]: 'true' } : {}),
   ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
   ...workersPool?.env,
 });

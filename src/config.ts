@@ -43,6 +43,13 @@ export type Config = {
    * `this.timeout(ms)` of a suite, the timeout of its tests. Deprecated: each warns once.
    */
   mocha?: boolean;
+  /**
+   * While a module is mocked, the modules of the code imported after a mock imported again, like quibble of esmocha:
+   * the module under test sees the mock even when the test file imported it before. A module imported again is a
+   * second instance of it, which the coverage of node counts apart (the functions one of the instances does not run are
+   * not covered): without it, the modules imported before a mock keep the module itself.
+   */
+  reimport?: boolean;
   /** The coverage of a run with --coverage: the files it is measured on, and its minimum in percents. */
   coverage?: { include?: string[]; exclude?: string[]; lines?: number; branches?: number; functions?: number };
 };

@@ -24,7 +24,7 @@ export const restoreAllMocks = () => mocker.restoreAllMocks();
 
 /**
  * Mocks a module for the imports after it: import the module under test after it (`await import`), as Vitest hoists
- * vi.mock; a module imported before is imported again, the packages kept (see the generation of mocks.ts). Its
+ * vi.mock; a module imported before keeps the module itself, but with `reimport` (see the generation of mocks.ts). Its
  * exports over the ones of the module itself (a factory gets them, like importOriginal), the modules importing other
  * names of it still linking; without them, every export mocked by jest-mock (its functions mock functions), like
  * esmocha. Gives the exports of the mock.

@@ -3,7 +3,6 @@ import type * as Path from 'node:path';
 import { describe, expect, exnode, it } from '../src/index.ts';
 
 import { importLocal, mockLocal } from './fixtures/caller/local.ts';
-import { count } from './fixtures/count.ts';
 import type * as Double from './fixtures/double.ts';
 
 await exnode.mock('./fixtures/double.ts', { double: (value: number) => value * 3 });
@@ -91,14 +90,6 @@ describe('the module mocks of exnode', () => {
 });
 
 describe('the module mocks of exnode, from the module calling', () => {
-  it('imports again a module imported before a mock, the ones before keeping theirs', async () => {
-    await exnode.mock('./fixtures/counter.ts', { step: () => 2 });
-    expect((await import('./fixtures/count.ts')).count()).toBe(20);
-    expect(count()).toBe(10);
-    exnode.unmock('./fixtures/counter.ts');
-    expect((await import('./fixtures/count.ts')).count()).toBe(10);
-  });
-
   it('resolves a package from the module calling', async () => {
     await mockLocal();
     expect((await importLocal()).name()).toBe('mocked');
