@@ -3,8 +3,11 @@
 node:test with the expect and mock API of Jest and Vitest, like [esmocha](https://github.com/mshima/esmocha) gives it
 over mocha. The runner, the timeouts and the coverage are node's: the coverage of the code a test runs in a subprocess
 or a worker thread counts too, and TypeScript runs as node strips it, without a transform between the tests and the
-code. The assertions are the `expect` of Jest, the mock functions `jest-mock`. The test files can run by processes
-reused, like mocha `--parallel`, as fast as esmocha on a large code (see Workers).
+code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
+
+node:test runs each test file in a process of its own, or all of them in one, and has no isolation by threads nor by
+processes reused: on a large code, each test file importing it again makes node:test slower than mocha `--parallel`.
+expect-node adds the workers it lacks, processes reused like the ones of mocha, as fast as esmocha (see Workers).
 
 ```ts
 import { beforeAll, describe, expect, exnode, it } from 'expect-node';
