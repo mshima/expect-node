@@ -5,7 +5,7 @@
  */
 import { ENV } from './env.ts';
 
-export const MOCHA = process.env[ENV.mocha] === 'true';
+const MOCHA = process.env[ENV.mocha] === 'true';
 
 /** The `this` of a test, a suite or a hook, with the `mocha` configuration only. */
 export type MochaThis = {

@@ -40,7 +40,7 @@ if (snapshots) {
 /* node:coverage enable */
 
 /** The snapshots of a test file, whether a test of it failed, and its tests skipped. */
-export type SnapshotFile = { state: object; failed: boolean; skipped: Set<string> };
+type SnapshotFile = { state: object; failed: boolean; skipped: Set<string> };
 type SnapshotState = InstanceType<NonNullable<typeof snapshots>['SnapshotState']>;
 
 const snapshotFiles = new Map<string, SnapshotFile & { state: SnapshotState }>();

@@ -37,25 +37,27 @@ await config.setup?.();
 
 const { coverage = {} } = config;
 /** The test files given, else the ones of the configuration, else the default patterns of node:test. */
-const testFiles = () => {
-  if (positionals.length > 0) return { files: positionals.map(file => resolve(file)) };
-  return config.files ? { globPatterns: config.files } : {};
-};
+const files = positionals.length > 0 ? positionals.map(file => resolve(file)) : undefined;
+const testFiles = files ? { files } : { globPatterns: config.files };
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
-const workersPool = workers ? pool(testFiles().files, config.files, workers) : undefined;
+const workersPool = workers ? pool(files, config.files, workers) : undefined;
+const setupFiles = config.setupFiles?.map(file => resolve(file));
 
 // What the options and the configuration change in the test processes, which inherit the environment (see env.ts).
 Object.assign(process.env, {
   // Every snapshot written again.
   ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
   ...(config.mocha ? { [ENV.mocha]: 'true' } : {}),
-  ...(config.setupFiles ? { [ENV.setupFiles]: JSON.stringify(config.setupFiles.map(file => resolve(file))) } : {}),
+  ...(setupFiles ? { [ENV.setupFiles]: JSON.stringify(setupFiles) } : {}),
   ...workersPool?.env,
 });
 // The setup files, imported by the test processes only (see setup.ts).
-const setup = config.setupFiles ? ['--import', ownModule('setup')] : [];
+const setup = setupFiles ? ['--import', ownModule('setup')] : [];
 const stream = run({
-  ...(workersPool?.options ?? { ...testFiles(), concurrency: config.concurrency ?? true }),
+  ...(workersPool?.options ?? {
+    ...testFiles,
+    concurrency: config.concurrency ?? true,
+  }),
   execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setup],
   ...(config.timeout === undefined ? {} : { timeout: config.timeout }),
   ...(values.coverage

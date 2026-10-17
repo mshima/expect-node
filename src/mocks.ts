@@ -7,14 +7,15 @@ import { registerHooks } from 'node:module';
 
 import { callerSite, OWN } from './caller.ts';
 
-/** The modules mocked, by URL: their exports, and the ones of the module itself. */
-const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; version: number }>();
-/** Each mock of a module a URL of its own: node keeps a module by its URL, a module mocked again is another one. */
-let mocks = 0;
 /**
- * While a module is mocked, the modules imported after a mock changed are each a module of its own again (but the
- * packages and expect-node): the module under test imported again sees the mocks, even when the test file imported it
- * before, like quibble of esmocha.
+ * The modules mocked, by URL: their exports, the ones of the module itself, and the generation of the mock, a URL of its
+ * own (node keeps a module by its URL, a module mocked again is another one).
+ */
+const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; generation: number }>();
+/**
+ * Each change of the mocks. While a module is mocked, the modules imported after a change are each a module of its own
+ * again (but the packages and expect-node): the module under test imported again sees the mocks, even when the test
+ * file imported it before, like quibble of esmocha.
  */
 let generation = 0;
 const MOCKED = Symbol.for('exnode.mocked');
@@ -33,7 +34,7 @@ registerHooks({
     }
     const resolved = nextResolve(specifier, context);
     const mock = mocked.get(resolved.url);
-    if (mock) return { url: `${MOCK_PROTOCOL}${mock.version}:${resolved.url}`, shortCircuit: true };
+    if (mock) return { url: `${MOCK_PROTOCOL}${mock.generation}:${resolved.url}`, shortCircuit: true };
     if (!isFresh(resolved.url)) return resolved;
     const url = new URL(resolved.url);
     url.searchParams.set('exnode', String(generation));
@@ -63,8 +64,7 @@ export const actualOf = async (url: string) => mocked.get(url)?.actual ?? ((awai
 
 /** Mocks a module: its exports, and the ones of the module itself. */
 export const setMock = (url: string, exports: Record<string, unknown>, actual: Record<string, unknown>) => {
-  mocked.set(url, { exports, actual, version: ++mocks });
-  generation++;
+  mocked.set(url, { exports, actual, generation: ++generation });
 };
 
 /** The module itself again, of one or of every module mocked. */
