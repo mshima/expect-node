@@ -113,6 +113,8 @@ export default defineConfig({
   import: ['test/hooks.ts'],
   // Imported by each test process only, before its test files: hooks of the tests, of each test file.
   setupFiles: ['test/setup.ts'],
+  // The root hook plugins of mocha (modules exporting mochaHooks), by a package or a path: of each test file too.
+  mochaHooks: ['yeoman-test/mocha-cleanup'],
   timeout: 600_000,
   // The test files by processes reused, as many as the cores.
   workers: true,
@@ -149,7 +151,12 @@ node:test.
 `before` the tests of its suite, in a `beforeEach` the test; `this.timeout(ms)` of a suite is the timeout of its tests,
 of no effect in a test or a hook. It is deprecated, for a migration: each warns once (`EXNODE_MOCHA_THIS`), and the
 types mark it. From esmocha, the imports of `esmocha` become the ones of `expect-node`, `esmocha` becoming `exnode`, and
-`esmocha.mock(specifier, import(specifier))`, every export mocked, becomes `exnode.mock(specifier)`.
+`esmocha.mock(specifier, import(specifier))`, every export mocked, becomes `exnode.mock<typeof import(specifier)>(specifier)`.
+
+The root hook plugins of mocha, given to it by `--require` (a module exporting `mochaHooks`: `beforeAll`, `beforeEach`,
+`afterAll`, `afterEach`, each a hook or an array of them, or a function giving them), are given by `mochaHooks`, their
+specifiers from the cwd: `mochaHooks: ['yeoman-test/mocha-cleanup']`. Imported by the test processes like the setup
+files, their hooks are of each test file, as with mocha `--parallel`.
 
 A reporter is one of node:test (`spec`, `tap`, `dot`, `junit`, `lcov`) or the path of a module of one (its default
 export, like an async generator of the events), to the terminal or, after a `:`, to a file: `--reporter dot --reporter

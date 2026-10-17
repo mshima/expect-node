@@ -11,7 +11,7 @@ const OWN_PATHS = [import.meta.dirname, OWN];
 export const ownModule = (name: string) => new URL(`./${name}${extname(import.meta.url)}`, import.meta.url).href;
 
 /** Where a function of expect-node is called from: the module (its URL and its path), the line and the column. */
-type Site = { url: string; file: string; line: number; column: number };
+export type Site = { url: string; file: string; line: number; column: number };
 
 export const callerSite = (): Site => {
   const site = getCallSites().find(({ scriptName }) => scriptName && !OWN_PATHS.some(own => scriptName.startsWith(own)))!;

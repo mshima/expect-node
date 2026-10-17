@@ -1,3 +1,4 @@
 node_modules
 !/test/fixtures/caller/node_modules
+!/test/fixtures/pool/node_modules
 dist

@@ -4,7 +4,7 @@ import { Worker } from 'node:worker_threads';
 
 import { describe, exnode, expect, it } from '../../../src/index.ts';
 
-const scope = globalThis as { setups?: number };
+const scope = globalThis as { setups?: number; eachs?: number };
 await exnode.mock('./value.ts', { value: () => 2 });
 
 describe('a test file mocking', () => {
@@ -21,6 +21,7 @@ describe('a test file mocking', () => {
   });
 
   it('ran the setup', () => {
+    expect(scope.eachs).toBeGreaterThan(0);
     process.stdout.write(`setups: ${scope.setups}\n`);
   });
 });
