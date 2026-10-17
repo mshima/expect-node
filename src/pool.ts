@@ -7,8 +7,11 @@
 import { globSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { availableParallelism, tmpdir } from 'node:os';
-import { extname, join, resolve, sep } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline';
+
+import { ownModule } from './caller.ts';
+import { ENV } from './env.ts';
 
 const EXTENSIONS = '{cjs,mjs,js,cts,mts,ts}';
 /** The default patterns of node:test. */
@@ -16,7 +19,8 @@ const DEFAULT_PATTERNS = ['*.test', '*-test', '*_test', 'test-*', 'test', 'test/
 
 /**
  * The workers of the test files given, else of the patterns, else of the default ones: as many as given, as the cores
- * for true, never more than the test files. Gives the options of run, and what to close once it ran.
+ * for true, never more than the test files. Gives the options of run, the environment of the workers, and what to
+ * close once it ran.
  */
 export const pool = (files: string[] | undefined, patterns: string[] | undefined, workers: number | true) => {
   const queue =
@@ -33,8 +37,7 @@ export const pool = (files: string[] | undefined, patterns: string[] | undefined
   const server = createServer(connection => {
     createInterface({ input: connection }).on('line', () => connection.write(`${JSON.stringify(queue.shift() ?? null)}\n`));
   }).listen(socket);
-  // The worker of the sources or of the build, as this module.
-  const worker = new URL(`./worker${extname(import.meta.url)}`, import.meta.url).href;
+  const worker = ownModule('worker');
   // Each worker its first test file, so that none runs none (node:test would count it as a test).
   const entries = queue.splice(0, count).map((first, index) => {
     const entry = join(folder, `worker-${index + 1}.mjs`);
@@ -44,10 +47,9 @@ export const pool = (files: string[] | undefined, patterns: string[] | undefined
     );
     return entry;
   });
-  // The workers, test processes, inherit the environment.
-  process.env.EXNODE_WORKER = socket;
   return {
     options: { files: entries, concurrency: count },
+    env: { [ENV.worker]: socket },
     close: () => {
       server.close();
       rmSync(folder, { recursive: true, force: true });

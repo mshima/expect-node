@@ -1,9 +1,11 @@
 /**
  * The `this` of mocha in the tests, the suites and the hooks (`this.skip()`, `this.timeout(ms)`), by the `mocha` of the
- * configuration (see config.ts), which the bin gives to the test files by `EXNODE_MOCHA`: for a migration from mocha or
+ * configuration (see config.ts), which the bin gives to the test files (see env.ts): for a migration from mocha or
  * esmocha, deprecated, each of them warning once.
  */
-export const MOCHA = process.env.EXNODE_MOCHA === 'true';
+import { ENV } from './env.ts';
+
+export const MOCHA = process.env[ENV.mocha] === 'true';
 
 /** The `this` of a test, a suite or a hook, with the `mocha` configuration only. */
 export type MochaThis = {

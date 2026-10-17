@@ -1,11 +1,9 @@
 /** The tests, the suites and the hooks of Jest and Vitest, declared to node:test. */
-import { relative } from 'node:path';
 import * as nodeTest from 'node:test';
-import { pathToFileURL } from 'node:url';
 import { format } from 'node:util';
-import { compileFunction } from 'node:vm';
 
-import { callerSite, type Site } from './caller.ts';
+import { callAt, callerSite } from './caller.ts';
+import { ENV } from './env.ts';
 import { type MochaThis, mochaThis } from './mocha.ts';
 import { setSnapshotTest, snapshotFileOf } from './snapshots.ts';
 
@@ -21,27 +19,6 @@ const timeoutOf = (of: Suite | undefined): number | undefined => (of ? (of.timeo
 const skippedOf = (of: Suite | undefined): boolean => Boolean(of && (of.skipped || skippedOf(of.parent)));
 /** The next test skipped by a beforeEach, by the `this` of mocha. */
 let skipNext = false;
-
-/**
- * A function of node:test called from a line of the test file, the location node gives the test (it takes the one of
- * its caller, else expect-node).
- */
-type Call = (declare: unknown, args: unknown[]) => unknown;
-const calls = new Map<string, Call>();
-const callAt = ({ file, line, column }: Site, declare: unknown, args: unknown[]) => {
-  const key = `${file}:${line}:${column}`;
-  let call = calls.get(key);
-  if (!call) {
-    // The path, not the URL: the coverage of node takes the modules of a file: URL only.
-    call = compileFunction('return declare(...args)', ['declare', 'args'], {
-      filename: file,
-      lineOffset: line - 1,
-      columnOffset: column - 1 - 'return '.length,
-    }) as unknown as Call;
-    calls.set(key, call);
-  }
-  return call(declare, args);
-};
 
 /** What a test gets: skip ends it skipped, like the context of Vitest. */
 export type TestContext = { skip: (message?: string) => never };
@@ -179,14 +156,12 @@ export const it = declaring((title, options, fn) => {
 /** The `test` of Jest and Vitest. */
 export const test = it;
 
-/** A worker of the pool of the bin (see worker.ts), which runs its test files one after the other. */
-const WORKER = process.env.EXNODE_WORKER !== undefined;
 /**
- * The hooks a worker declares out of its test files, by the setup files: declared again for each test file, like the
- * root hooks of mocha, as when each test file runs in a process of its own.
+ * The hooks declared out of any suite while closed, by the setup files of a worker: declared again by it for each of its
+ * test files (see worker.ts), like the root hooks of mocha, as when each test file runs in a process of its own. Open
+ * while a worker imports a test file, and in the process of a test file.
  */
-const rootHooks: (() => void)[] = [];
-let inFile = false;
+export const rootHooks = { open: process.env[ENV.worker] === undefined, deferred: [] as (() => void)[] };
 
 /**
  * A hook, its timeout after its function like Jest and Vitest; a function of a parameter ends by calling it (`done`, an
@@ -218,8 +193,7 @@ const hook =
         },
         timeout === undefined ? {} : { timeout },
       ]);
-    // A hook out of any test file of a worker: of each of its test files.
-    if (WORKER && !inFile && suite.parent === undefined) rootHooks.push(declare);
+    if (!rootHooks.open && suite.parent === undefined) rootHooks.deferred.push(declare);
     else declare();
   };
 export const beforeAll = hook(nodeTest.before, of => (of.skipped = true));
@@ -229,19 +203,3 @@ export const afterEach = hook(nodeTest.afterEach);
 /** The `before` and the `after` of mocha and esmocha. */
 export const before = beforeAll;
 export const after = afterAll;
-
-/**
- * A test file of a worker, in a suite of its own (its relative path): its root hooks and its tests of it alone, then
- * the cleanup, before the next test file is imported.
- */
-export const testFile = (file: string, cleanup: () => void) =>
-  nodeTest.describe(relative(process.cwd(), file), async () => {
-    for (const declare of rootHooks) declare();
-    inFile = true;
-    try {
-      await import(pathToFileURL(file).href);
-    } finally {
-      inFile = false;
-      nodeTest.after(cleanup);
-    }
-  });

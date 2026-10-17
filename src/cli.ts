@@ -4,13 +4,15 @@
  * with the coverage of the files it includes, its minimum failing the run. A failed test fails the run.
  */
 import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
-import { dirname, extname, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { run } from 'node:test';
 import * as reporters from 'node:test/reporters';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
+import { ownModule } from './caller.ts';
 import type { Config } from './config.ts';
+import { ENV } from './env.ts';
 import { pool } from './pool.ts';
 
 // A runner, never a test file: run by a test (its own tests), node:test would take it for one of its files.
@@ -27,17 +29,9 @@ const { values, positionals } = parseArgs({
   },
   allowPositionals: true,
 });
-// Every snapshot written again, by the test files, which inherit the environment (see the snapshots of index.ts).
-if (values['update-snapshot'] || values.updateSnapshot) {
-  process.env.UPDATE_SNAPSHOT = 'all';
-}
-
 const CONFIG_FILES = ['expect-node.config.ts', 'expect-node.config.mts', 'expect-node.config.js', 'expect-node.config.mjs'];
 const configFile = values.config ? resolve(values.config) : CONFIG_FILES.map(file => resolve(file)).find(file => existsSync(file));
 const config: Config = configFile ? ((await import(pathToFileURL(configFile).href)) as { default: Config }).default : {};
-
-// The `this` of mocha, by the test files, which inherit the environment (see mocha.ts).
-if (config.mocha) process.env.EXNODE_MOCHA = 'true';
 
 await config.setup?.();
 
@@ -47,12 +41,19 @@ const testFiles = () => {
   if (positionals.length > 0) return { files: positionals.map(file => resolve(file)) };
   return config.files ? { globPatterns: config.files } : {};
 };
-// The setup files, by the test processes only (see setup.ts).
-if (config.setupFiles) process.env.EXNODE_SETUP_FILES = JSON.stringify(config.setupFiles.map(file => resolve(file)));
-const setup = config.setupFiles ? ['--import', new URL(`./setup${extname(import.meta.url)}`, import.meta.url).href] : [];
-
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
 const workersPool = workers ? pool(testFiles().files, config.files, workers) : undefined;
+
+// What the options and the configuration change in the test processes, which inherit the environment (see env.ts).
+Object.assign(process.env, {
+  // Every snapshot written again.
+  ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
+  ...(config.mocha ? { [ENV.mocha]: 'true' } : {}),
+  ...(config.setupFiles ? { [ENV.setupFiles]: JSON.stringify(config.setupFiles.map(file => resolve(file))) } : {}),
+  ...workersPool?.env,
+});
+// The setup files, imported by the test processes only (see setup.ts).
+const setup = config.setupFiles ? ['--import', ownModule('setup')] : [];
 const stream = run({
   ...(workersPool?.options ?? { ...testFiles(), concurrency: config.concurrency ?? true }),
   execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setup],

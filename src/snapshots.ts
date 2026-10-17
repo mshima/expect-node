@@ -9,6 +9,8 @@ import * as nodeTest from 'node:test';
 
 import { expect as jestExpect } from 'expect';
 
+import { ENV } from './env.ts';
+
 // Without jest-snapshot, which its tests have.
 /* node:coverage ignore next */
 const snapshots = await import('jest-snapshot').catch(() => undefined);
@@ -52,7 +54,7 @@ export const snapshotFileOf = (testPath: string): SnapshotFile | undefined => {
   if (!file) {
     // By the environment of the run: in CI or not, the --update-snapshot of the bin.
     /* node:coverage ignore next */
-    const updateSnapshot = (process.env.UPDATE_SNAPSHOT ?? (process.env.CI ? 'none' : 'new')) as 'all' | 'new' | 'none';
+    const updateSnapshot = (process.env[ENV.updateSnapshot] ?? (process.env.CI ? 'none' : 'new')) as 'all' | 'new' | 'none';
     const state = new snapshots.SnapshotState(join(dirname(testPath), '__snapshots__', `${basename(testPath)}.snap`), {
       updateSnapshot,
       snapshotFormat: { escapeString: false, printBasicPrototype: false },
