@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/mshima/expect-node/compare/expect-node-v0.1.0...expect-node-v0.2.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* the bin `extest` is now `exnode`, the export `extest` is now `exnode`.
+
+### Features
+
+* mochaHooks, the root hook plugins of mocha by their module ([#11](https://github.com/mshima/expect-node/issues/11)) ([a805766](https://github.com/mshima/expect-node/commit/a80576651e4cee54756b191c0df56060716a03f5))
+* the bin and the mocks object named exnode, after the package ([#5](https://github.com/mshima/expect-node/issues/5)) ([ad32d34](https://github.com/mshima/expect-node/commit/ad32d3469a0c89acbcccf23c0d89904c402c1229))
+* what a migration from esmocha needs, the this of mocha by the mocha configuration ([#8](https://github.com/mshima/expect-node/issues/8)) ([262299b](https://github.com/mshima/expect-node/commit/262299bd013186438fa32b73ebc8b0bbcef34549))
+* workers, the test files by processes reused like mocha --parallel, setupFiles, and the code reorganized ([#10](https://github.com/mshima/expect-node/issues/10)) ([9333243](https://github.com/mshima/expect-node/commit/9333243ffa586081d9c7b6f025262be6ae76c54b))
+
 ## 0.1.0 (2026-10-16)
 
 
