@@ -46,8 +46,8 @@ export type Config = {
   /**
    * While a module is mocked, the modules of the code imported after a mock imported again, like quibble of esmocha:
    * the module under test sees the mock even when the test file imported it before. A module imported again is a
-   * second instance of it, which the coverage of node counts apart (the functions one of the instances does not run are
-   * not covered): without it, the modules imported before a mock keep the module itself.
+   * second instance of it, with a state and classes of its own (its coverage merged with the one of the first by the
+   * bin): without it, the modules imported before a mock keep the module itself.
    */
   reimport?: boolean;
   /** The coverage of a run with --coverage: the files it is measured on, and its minimum in percents. */

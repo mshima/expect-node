@@ -17,8 +17,8 @@ const mocked = new Map<string, { exports: Record<string, unknown>; actual: Recor
  * Each change of the mocks. With the `reimport` of the configuration, while a module is mocked, the modules imported
  * after a change are each a module of its own again (but the packages and expect-node): the module under test imported
  * again sees the mocks, even when the test file imported it before, like quibble of esmocha. A module imported again is
- * a second instance of it, which the coverage of node counts apart: the functions one of them does not run are not
- * covered, so it is not the default.
+ * a second instance of it (its state, its classes of their own), whose coverage node:test reports apart and the bin
+ * merges (see coverage.ts): not the default.
  */
 let generation = 0;
 const REIMPORT = process.env[ENV.reimport] === 'true';

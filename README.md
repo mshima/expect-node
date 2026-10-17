@@ -114,7 +114,9 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
     `reimport: true` in the configuration, a module of the project imported before is imported again while a module is
     mocked, like quibble of esmocha does, so the module under test sees the mock even when the test file imported it
     first (the packages, `node_modules`, are not imported again); but a module imported again is a second instance of
-    it, which the coverage of node counts apart, the functions one of them does not run not covered. The mocks are
+    it, with a state and classes of its own (`instanceof` tells them apart). node:test reports the coverage of each
+    instance apart, a function one of them did not run not covered: the bin merges them by file, before the reporters
+    and the minimums. The mocks are
     in-thread hooks (`module.registerHooks`): the module mocks of node run off-thread hooks, whose thread records a
     coverage of zero for the module mocked, which node merges over the one of the tests (nodejs/node#65946).
   - `stubEnv(name, value)` (undefined deletes it), `stubGlobal(name, value)`: given back after each test

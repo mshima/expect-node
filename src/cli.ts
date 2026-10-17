@@ -12,6 +12,7 @@ import { parseArgs } from 'node:util';
 
 import { ownModule } from './caller.ts';
 import type { Config } from './config.ts';
+import { mergeCoverageOf } from './coverage.ts';
 import { ENV } from './env.ts';
 import { pool } from './pool.ts';
 
@@ -69,15 +70,14 @@ const stream = run({
         coverage: true,
         ...(coverage.include ? { coverageIncludeGlobs: coverage.include } : {}),
         ...(coverage.exclude ? { coverageExcludeGlobs: coverage.exclude } : {}),
-        ...(coverage.lines === undefined ? {} : { lineCoverage: coverage.lines }),
-        ...(coverage.branches === undefined ? {} : { branchCoverage: coverage.branches }),
-        ...(coverage.functions === undefined ? {} : { functionCoverage: coverage.functions }),
       }
     : {}),
 });
 stream.on('test:fail', () => {
   process.exitCode = 1;
 });
+// The coverage merged by file before the reporters read it, its minimums checked on it (see coverage.ts).
+mergeCoverageOf(stream as unknown as Parameters<typeof mergeCoverageOf>[0], coverage);
 if (workersPool) stream.once('close', workersPool.close);
 /**
  * A reporter, `<name>[:<file>]`: one of node:test (spec, tap, dot, junit, lcov) or the path of a module of one (its
