@@ -5,9 +5,10 @@ over mocha. The runner, the timeouts and the coverage are node's: the coverage o
 or a worker thread counts too, and TypeScript runs as node strips it, without a transform between the tests and the
 code. The assertions are the `expect` of Jest, the mock functions `jest-mock`.
 
-node:test runs each test file in a process of its own, or all of them in one, and has no isolation by threads nor by
-processes reused: on a large code, each test file importing it again makes node:test slower than mocha `--parallel`.
-expect-node adds the workers it lacks, processes reused like the ones of mocha, as fast as esmocha (see Workers).
+node:test does not support threads: it runs each test file in a process of its own, or all of them in one, never in a
+worker thread nor in a process reused. On a large code, each test file importing it again makes node:test slower than
+mocha `--parallel`; expect-node adds the workers it lacks, processes reused like the ones of mocha, as fast as esmocha
+(see Workers).
 
 ```ts
 import { beforeAll, describe, expect, exnode, it } from 'expect-node';
