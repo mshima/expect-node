@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/mshima/expect-node/compare/expect-node-v0.2.1...expect-node-v0.3.0) (2026-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* the timeouts are of node:test by default. A number after the function of a test or a hook, of Vitest and Jest, fails: `compatibility: 'vitest'` or `'jest'`, or `{ timeout }` (before the function of a test, after the one of a hook). The timeout of a suite is of the whole suite, as node:test's; of each test with `compatibility: 'vitest'`.
+
+### Features
+
+* --forbid-only, a test or a suite declared only failing ([#18](https://github.com/mshima/expect-node/issues/18)) ([c8174d3](https://github.com/mshima/expect-node/commit/c8174d30a4609763a8a774789c608f74ec2fd8e2))
+* --watch, the test files run again when they change, by node:test ([#17](https://github.com/mshima/expect-node/issues/17)) ([58990f6](https://github.com/mshima/expect-node/commit/58990f65f1d9c2e23927826a5baa99b77b52cf2d))
+* a directory given to the bin, its test files ([#16](https://github.com/mshima/expect-node/issues/16)) ([8f39f65](https://github.com/mshima/expect-node/commit/8f39f65f6b04152a79c65ce8eb28ed297cbf31bb))
+* compatibility, the timeouts in the format of node:test (the default), Vitest, Jest or mocha ([#15](https://github.com/mshima/expect-node/issues/15)) ([0624c1a](https://github.com/mshima/expect-node/commit/0624c1ae64a37cea3b9e8d2ddbf6f8be426d6106))
+* the reimport of a mock alone, exnode.mock(specifier, exports, { reimport: true }) ([#19](https://github.com/mshima/expect-node/issues/19)) ([a64e5f8](https://github.com/mshima/expect-node/commit/a64e5f834b31760aa4415f836b0fed05c4dc2220))
+
+
+### Bug Fixes
+
+* the timeout of the configuration of each test and hook on node 22, the timeouts of .each, done of the tests of jest and mocha ([#21](https://github.com/mshima/expect-node/issues/21)) ([b238ed9](https://github.com/mshima/expect-node/commit/b238ed9caed7a28c424c0b1f04328afed54e4850))
+
 ## [0.2.1](https://github.com/mshima/expect-node/compare/expect-node-v0.2.0...expect-node-v0.2.1) (2026-10-17)
 
 
