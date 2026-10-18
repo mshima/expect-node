@@ -66,6 +66,8 @@ describe('the expect-node bin', () => {
     expect(keep.code).toBe(0);
     expect(keep.stdout).toMatch(/lib\.ts +\| 100\.00 \| +100\.00 \| +100\.00/);
     expect(await runIn('reimport', '--config', 'reimport.config.ts')).toMatchObject({ code: 0 });
+    // The reimport of a mock alone.
+    expect(await runIn('reimport', '--config', 'by-mock.config.ts')).toMatchObject({ code: 0 });
   });
 
   it('fails a test or a suite declared only by --forbid-only or forbidOnly, at its site', async () => {

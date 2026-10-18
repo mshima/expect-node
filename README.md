@@ -105,20 +105,20 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
   - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock; all but
     `mocked` exported by themselves too, like esmocha.
   - `await exnode.mock(specifier, exports | importOriginal => exports)`: mocks a module for the imports after it, its
-    specifier resolved from the calling file (relative, a package, a subpath import), and gives its exports. The
-    exports given are over the ones of the module, so the modules importing other names of it still link; without
-    them, every export is mocked by jest-mock (its functions mock functions). `unmock(specifier)` and `resetModules()`
-    (`reset()` of esmocha) give the module itself again to the imports after them, `importActual(specifier)` gives it
-    mocked or not; `doMock` and `doUnmock` are `mock` and `unmock`. Unlike `vi.mock`, it is not hoisted: import the
-    module under test after it, with `await import(...)`: a module imported before keeps the module itself. With
-    `reimport: true` in the configuration, a module of the project imported before is imported again while a module is
-    mocked, like quibble of esmocha does, so the module under test sees the mock even when the test file imported it
-    first (the packages, `node_modules`, are not imported again); but a module imported again is a second instance of
-    it, with a state and classes of its own (`instanceof` tells them apart). node:test reports the coverage of each
-    instance apart, a function one of them did not run not covered: the bin merges them by file, before the reporters
-    and the minimums. The mocks are
-    in-thread hooks (`module.registerHooks`): the module mocks of node run off-thread hooks, whose thread records a
-    coverage of zero for the module mocked, which node merges over the one of the tests (nodejs/node#65946).
+    specifier resolved from the calling file (relative, a package, a subpath import), and gives its exports. The exports
+    given are over the ones of the module, so the modules importing other names of it still link; without them, every
+    export is mocked by jest-mock (its functions mock functions). `unmock(specifier)` and `resetModules()` (`reset()` of
+    esmocha) give the module itself again to the imports after them, `importActual(specifier)` gives it mocked or not;
+    `doMock` and `doUnmock` are `mock` and `unmock`. Unlike `vi.mock`, it is not hoisted: import the module under test
+    after it, with `await import(...)`: a module imported before keeps the module itself. With `reimport: true` in the
+    configuration, or in the options of a mock alone (`exnode.mock(specifier, exports, { reimport: true })`), a module
+    of the project imported before is imported again while a module is mocked so, like quibble of esmocha does, so the
+    module under test sees the mock even when the test file imported it first (the packages, `node_modules`, are not
+    imported again); but a module imported again is a second instance of it, with a state and classes of its own
+    (`instanceof` tells them apart). node:test reports the coverage of each instance apart, a function one of them did
+    not run not covered: the bin merges them by file, before the reporters and the minimums. The mocks are in-thread
+    hooks (`module.registerHooks`): the module mocks of node run off-thread hooks, whose thread records a coverage of
+    zero for the module mocked, which node merges over the one of the tests (nodejs/node#65946).
   - `stubEnv(name, value)` (undefined deletes it), `stubGlobal(name, value)`: given back after each test
     (`unstubAllEnvs`, `unstubAllGlobals`).
 
@@ -175,8 +175,8 @@ run too, or whose dependencies would change them.
 
 ### From mocha or esmocha
 
-From esmocha, a test file importing the module under test before mocking what it imports needs `reimport: true`, or
-to import the module under test after the mock.
+From esmocha, a test file importing the module under test before mocking what it imports needs the `reimport` of its
+mock (`exnode.mock(specifier, exports, { reimport: true })`), or to import the module under test after the mock.
 
 `mocha: true` gives the tests, the suites and the hooks the `this` of mocha: `this.skip()` skips the test, in a suite or a
 `before` the tests of its suite, in a `beforeEach` the test; `this.timeout(ms)` of a suite is the timeout of its tests,
