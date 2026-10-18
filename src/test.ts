@@ -17,6 +17,8 @@ let suite: Suite = { titles: [] };
 /** The timeout of the tests of a suite, the one of the nearest suite giving one. */
 const timeoutOf = (of: Suite | undefined): number | undefined => (of ? (of.timeout ?? timeoutOf(of.parent)) : undefined);
 const skippedOf = (of: Suite | undefined): boolean => Boolean(of && (of.skipped || skippedOf(of.parent)));
+/** A test or a suite declared only failing, by `--forbid-only` (see cli.ts). */
+const FORBID_ONLY = process.env[ENV.forbidOnly] === 'true';
 /** The next test skipped by a beforeEach, by the `this` of mocha. */
 let skipNext = false;
 
@@ -95,7 +97,18 @@ const declaring = (declare: (name: string, options: Options, fn?: Fn) => unknown
     (extra: Options): Declare =>
     (name, optionsOrFn, fnOrTimeout) => {
       const [options, fn] = argumentsOf(optionsOrFn, fnOrTimeout);
-      void declare(name, { ...options, ...extra }, fn);
+      const merged = { ...options, ...extra };
+      // A test or a suite only, forbidden: a test failing, at its site, like mocha --forbid-only.
+      if (merged.only && FORBID_ONLY) {
+        callAt(callerSite(), nodeTest.it, [
+          name,
+          () => {
+            throw new Error(`${name} is declared only, which --forbid-only forbids`);
+          },
+        ]);
+        return;
+      }
+      void declare(name, merged, fn);
     };
   const declared = withOptions({});
   const each: Each = table => (name, optionsOrFn, fn) => {

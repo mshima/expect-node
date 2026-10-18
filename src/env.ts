@@ -7,6 +7,8 @@ export const ENV = {
   updateSnapshot: 'UPDATE_SNAPSHOT',
   /** `true`, the `this` of mocha (see mocha.ts), by `mocha`. */
   mocha: 'EXNODE_MOCHA',
+  /** `true`, a test or a suite declared only failing (see test.ts), by `--forbid-only` or `forbidOnly`. */
+  forbidOnly: 'EXNODE_FORBID_ONLY',
   /** `true`, the modules imported again after a mock (see mocks.ts), by `reimport`. */
   reimport: 'EXNODE_REIMPORT',
   /** The setup files and the modules of mocha hooks, as JSON (see setup.ts), by `setupFiles` and `mochaHooks`. */
