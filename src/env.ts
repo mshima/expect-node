@@ -5,8 +5,10 @@
 export const ENV = {
   /** `all`, `new` or `none`, the snapshots written (see snapshots.ts): `all` by `--update-snapshot`. */
   updateSnapshot: 'UPDATE_SNAPSHOT',
-  /** `true`, the `this` of mocha (see mocha.ts), by `mocha`. */
-  mocha: 'EXNODE_MOCHA',
+  /** The compatibility of the tests (see compatibility.ts), by `compatibility`. */
+  compatibility: 'EXNODE_COMPATIBILITY',
+  /** The timeout of the configuration, which the timeouts of mocha start from (see mocha.ts), by `timeout`. */
+  timeout: 'EXNODE_TIMEOUT',
   /** `true`, the modules imported again after a mock (see mocks.ts), by `reimport`. */
   reimport: 'EXNODE_REIMPORT',
   /** The setup files and the modules of mocha hooks, as JSON (see setup.ts), by `setupFiles` and `mochaHooks`. */

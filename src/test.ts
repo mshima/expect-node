@@ -1,15 +1,16 @@
-/** The tests, the suites and the hooks of Jest and Vitest, declared to node:test. */
+/** The tests, the suites and the hooks of node:test, Vitest, Jest and mocha, declared to node:test. */
 import * as nodeTest from 'node:test';
 import { format } from 'node:util';
 
 import { callAt, callerSite, type Site } from './caller.ts';
+import { checkTimeout, COMPATIBILITY, type Format } from './compatibility.ts';
 import { ENV } from './env.ts';
-import { type MochaThis, mochaThis } from './mocha.ts';
+import { DEFAULT_TIMEOUT, MOCHA, type MochaThis, mochaThis, timed } from './mocha.ts';
 import { setSnapshotTest, snapshotFileOf } from './snapshots.ts';
 
 /**
- * A suite: the titles of it and of its parents, for the names of its tests; the timeout of its tests and whether a hook
- * skipped them, by the `this` of mocha.
+ * A suite: the titles of it and of its parents, for the names of its tests; the timeout of its tests (of Vitest, and of
+ * mocha its hooks too) and whether a hook skipped them, by the `this` of mocha.
  */
 type Suite = { titles: string[]; parent?: Suite; timeout?: number; skipped?: boolean };
 /** The suite being declared, the root one out of any. */
@@ -25,7 +26,7 @@ export type TestContext = { skip: (message?: string) => never };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Fn = (this: MochaThis, context: TestContext) => any;
 type Options = { timeout?: number; skip?: boolean; only?: boolean; todo?: boolean };
-/** A test or a suite: its name, its options or not, its function, the timeout of Jest and Vitest after it. */
+/** A test or a suite: its name, its options or not, its function, the timeout of Vitest and Jest after it. */
 type Declare = (name: string, optionsOrFn?: Options | Fn, fnOrTimeout?: Fn | number) => void;
 
 /** The function of a case of a table, given its values. */
@@ -42,11 +43,16 @@ type Declaring = Declare & {
   todo: (name: string) => void;
 };
 
-/** The options and the function of a declaration, from its arguments after the name. */
-const argumentsOf = <F extends Fn | Case>(optionsOrFn?: Options | F, fnOrTimeout?: F | number): [Options, F | undefined] =>
-  typeof optionsOrFn === 'object'
-    ? [optionsOrFn, fnOrTimeout as F | undefined]
-    : [typeof fnOrTimeout === 'number' ? { timeout: fnOrTimeout } : {}, optionsOrFn];
+/** The options and the function of a declaration, from its arguments after the name, and the format of its timeout. */
+const argumentsOf = <F extends Fn | Case>(
+  optionsOrFn?: Options | F,
+  fnOrTimeout?: F | number,
+): [Options, F | undefined, Format | undefined] => {
+  if (typeof optionsOrFn === 'object') {
+    return [optionsOrFn, fnOrTimeout as F | undefined, optionsOrFn.timeout === undefined ? undefined : 'options before'];
+  }
+  return typeof fnOrTimeout === 'number' ? [{ timeout: fnOrTimeout }, optionsOrFn, 'number after'] : [{}, optionsOrFn, undefined];
+};
 
 /** The name of a case of a table, its placeholders (%s, %d, %i, %j, %o) replaced by its values in order. */
 const nameOf = (name: string, args: readonly unknown[]) => {
@@ -77,7 +83,11 @@ const withContext =
         skipNext = false;
         context.skip();
       }
-      await fn.call(mochaThis(context.skip)!, context);
+      await (MOCHA
+        ? timed(timeoutOf(of) ?? DEFAULT_TIMEOUT, async timeout => {
+            await fn.call(mochaThis(context.skip, timeout)!, context);
+          })
+        : fn.call(undefined as unknown as MochaThis, context));
     } catch (error) {
       if (error === SKIPPED) {
         file?.skipped.add(name);
@@ -90,11 +100,12 @@ const withContext =
     }
   };
 
-const declaring = (declare: (name: string, options: Options, fn?: Fn) => unknown): Declaring => {
+const declaring = (of: 'test' | 'suite', declare: (name: string, options: Options, fn?: Fn) => unknown): Declaring => {
   const withOptions =
     (extra: Options): Declare =>
     (name, optionsOrFn, fnOrTimeout) => {
-      const [options, fn] = argumentsOf(optionsOrFn, fnOrTimeout);
+      const [options, fn, timeoutFormat] = argumentsOf(optionsOrFn, fnOrTimeout);
+      if (timeoutFormat) checkTimeout(of, timeoutFormat);
       void declare(name, { ...options, ...extra }, fn);
     };
   const declared = withOptions({});
@@ -115,23 +126,26 @@ const declaring = (declare: (name: string, options: Options, fn?: Fn) => unknown
   });
 };
 
-// The timeout of a suite of Vitest is the one of each of its tests, the one given to the runner: a timeout of node is
-// the one of the whole suite.
-export const describe = declaring((title, { timeout: _timeout, ...options }, fn) =>
+// The timeout of a suite of node:test is the one of the whole suite; of Vitest, the one of each of its tests; of mocha
+// (this.timeout), the one of each of its tests and hooks.
+export const describe = declaring('suite', (title, { timeout, ...options }, fn) =>
   callAt(callerSite(), nodeTest.describe, [
     title,
-    options,
+    COMPATIBILITY === 'node' && timeout !== undefined ? { ...options, timeout } : options,
     fn &&
       (() => {
         // Declared at once: the tests declared in it are of this suite.
         const parent = suite;
-        suite = { titles: [...parent.titles, title], parent };
+        suite = { titles: [...parent.titles, title], parent, ...(timeout === undefined || COMPATIBILITY === 'node' ? {} : { timeout }) };
         const of = suite;
         try {
           void fn.call(
             mochaThis(
               () => (of.skipped = true),
-              ms => (of.timeout = ms),
+              ms => {
+                if (ms !== undefined) of.timeout = ms;
+                return timeoutOf(of) ?? DEFAULT_TIMEOUT;
+              },
             )!,
             {} as TestContext,
           );
@@ -141,12 +155,13 @@ export const describe = declaring((title, { timeout: _timeout, ...options }, fn)
       }),
   ]),
 );
-export const it = declaring((title, options, fn) => {
+export const it = declaring('test', (title, options, fn) => {
   const site = callerSite();
   const name = [...suite.titles, title].join(' ');
   // A test skipped keeps its snapshots.
   if (options.skip) snapshotFileOf(site.file)?.skipped.add(name);
-  const timeout = options.timeout ?? timeoutOf(suite);
+  // A test of mocha within its own timeout (see timed of mocha.ts).
+  const timeout = MOCHA ? Infinity : (options.timeout ?? timeoutOf(suite));
   return callAt(site, nodeTest.it, [
     title,
     timeout === undefined ? options : { ...options, timeout },
@@ -164,33 +179,40 @@ export const test = it;
 export const rootHooks = { open: process.env[ENV.worker] === undefined, deferred: [] as (() => void)[] };
 
 /**
- * A hook, its timeout after its function like Jest and Vitest; a function of a parameter ends by calling it (`done`, an
- * error failing the hook), like Jest and mocha. The `this.skip()` of mocha in a beforeAll skips the tests of its suite,
- * in a beforeEach the test.
+ * A hook, its timeout after its function: `{ timeout }` of node:test, a number of Vitest and Jest, `this.timeout(ms)` of
+ * mocha. A function of a parameter ends by calling it (`done`, an error failing the hook), like Jest and mocha. The
+ * `this.skip()` of mocha in a beforeAll skips the tests of its suite, in a beforeEach the test.
  */
 export type Hook = (this: MochaThis, done: (error?: unknown) => void) => unknown;
+type HookTimeout = number | { timeout?: number };
 const hook =
   (register: typeof nodeTest.before, skip: (of: Suite) => void = () => undefined) =>
-  (site: Site, fn: Hook, timeout?: number): void => {
+  (site: Site, fn: Hook, given?: HookTimeout): void => {
+    if (given !== undefined) checkTimeout('hook', typeof given === 'number' ? 'number after' : 'options after');
+    const timeout = typeof given === 'number' ? given : given?.timeout;
+    // A hook of mocha within its own timeout (see timed of mocha.ts).
+    const options = MOCHA ? { timeout: Infinity } : { ...(timeout === undefined ? {} : { timeout }) };
     const of = suite;
-    const self = mochaThis(() => {
+    const call = async (self: MochaThis | undefined) => {
+      try {
+        await (fn.length > 0
+          ? new Promise<void>((resolve, reject) => {
+              void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
+            })
+          : (fn as (this: MochaThis) => unknown).call(self!));
+      } catch (error) {
+        if (error !== SKIPPED) throw error;
+      }
+    };
+    const skipped = () => {
       skip(of);
       throw SKIPPED;
-    });
+    };
     const declare = () =>
       callAt(site, register, [
-        async () => {
-          try {
-            await (fn.length > 0
-              ? new Promise<void>((resolve, reject) => {
-                  void fn.call(self!, error => (error ? reject(error as Error) : resolve()));
-                })
-              : (fn as (this: MochaThis) => unknown).call(self!));
-          } catch (error) {
-            if (error !== SKIPPED) throw error;
-          }
-        },
-        timeout === undefined ? {} : { timeout },
+        // A hook of mocha within its own timeout, the one of its suite else of the configuration (see timed of mocha.ts).
+        MOCHA ? () => timed(timeoutOf(of) ?? DEFAULT_TIMEOUT, timeout => call(mochaThis(skipped, timeout))) : () => call(undefined),
+        options,
       ]);
     if (!rootHooks.open && suite.parent === undefined) rootHooks.deferred.push(declare);
     else declare();
@@ -202,10 +224,10 @@ export const hooksAt = {
   beforeEach: hook(nodeTest.beforeEach, () => (skipNext = true)),
   afterEach: hook(nodeTest.afterEach),
 };
-export const beforeAll = (fn: Hook, timeout?: number) => hooksAt.beforeAll(callerSite(), fn, timeout);
-export const afterAll = (fn: Hook, timeout?: number) => hooksAt.afterAll(callerSite(), fn, timeout);
-export const beforeEach = (fn: Hook, timeout?: number) => hooksAt.beforeEach(callerSite(), fn, timeout);
-export const afterEach = (fn: Hook, timeout?: number) => hooksAt.afterEach(callerSite(), fn, timeout);
+export const beforeAll = (fn: Hook, timeout?: HookTimeout) => hooksAt.beforeAll(callerSite(), fn, timeout);
+export const afterAll = (fn: Hook, timeout?: HookTimeout) => hooksAt.afterAll(callerSite(), fn, timeout);
+export const beforeEach = (fn: Hook, timeout?: HookTimeout) => hooksAt.beforeEach(callerSite(), fn, timeout);
+export const afterEach = (fn: Hook, timeout?: HookTimeout) => hooksAt.afterEach(callerSite(), fn, timeout);
 /** The `before` and the `after` of mocha and esmocha. */
 export const before = beforeAll;
 export const after = afterAll;

@@ -95,11 +95,12 @@ Two problems of coverage, which expect-node solves apart:
 The names Jest and Vitest share, so that a migration renames the imports and `vi` or `jest`:
 
 - `describe`, `it` (and `test`), with `.each(table)` (its name with `%s`, `%d`, `%i`, `%j`, `%o`), `.skipIf(condition)`,
-  `.runIf(condition)`, `.only`, `.skip` and `.todo(name)`; the options before the function (`{ timeout }`), or the
-  timeout after it.
+  `.runIf(condition)`, `.only`, `.skip` and `.todo(name)`; the options before the function, the timeout in the format
+  of the compatibility (see Compatibility).
   The function of a test gets a context whose `skip()` ends it skipped.
-- `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, a timeout after the function, which may end by a callback it gets
-  (`done`, an error failing the hook) like Jest and mocha; `before` and `after`, the names of mocha.
+- `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, the timeout after the function in the format of the compatibility,
+  which may end by a callback it gets (`done`, an error failing the hook) like Jest and mocha; `before` and `after`,
+  the names of mocha.
 - `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`).
 - `exnode`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
   - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock; all but
@@ -171,15 +172,31 @@ module hooks and aliases they need as well. The `setupFiles`, like the ones of V
 alone: the hooks of the tests (a cleanup after each test file), which the threads and the subprocesses would otherwise
 run too, or whose dependencies would change them.
 
+### Compatibility
+
+`compatibility` in the configuration is the API the tests are written for, `node` (node:test) by default: the format of
+their timeouts, and with `mocha` the `this` of mocha. A timeout in the format of another compatibility fails, telling
+the one it is of, never ignored.
+
+| `compatibility`  | A test                                    | A suite                                               | A hook                           |
+| ---------------- | ----------------------------------------- | ----------------------------------------------------- | -------------------------------- |
+| `node` (default) | `{ timeout }` before the function         | `{ timeout }` before the function: of the whole suite | `{ timeout }` after the function |
+| `vitest`         | `{ timeout }` before or a number after it | `{ timeout }` before or a number after: of each test  | a number after the function      |
+| `jest`           | a number after the function               | none                                                  | a number after the function      |
+| `mocha`          | `this.timeout(ms)`                        | `this.timeout(ms)`: of each of its tests and hooks    | `this.timeout(ms)`               |
+
+With `mocha`, `this.timeout(ms)` in a test or a hook running is its timeout from then, `0` for none, like mocha: the
+timeouts are expect-node's, from the `timeout` of the configuration, node:test not taking one for a test running.
+
 ### From mocha or esmocha
 
 From esmocha, a test file importing the module under test before mocking what it imports needs `reimport: true`, or
 to import the module under test after the mock.
 
-`mocha: true` gives the tests, the suites and the hooks the `this` of mocha: `this.skip()` skips the test, in a suite or a
-`before` the tests of its suite, in a `beforeEach` the test; `this.timeout(ms)` of a suite is the timeout of its tests,
-of no effect in a test or a hook. It is deprecated, for a migration: each warns once (`EXNODE_MOCHA_THIS`), and the
-types mark it. From esmocha, the imports of `esmocha` become the ones of `expect-node`, `esmocha` becoming `exnode`, and
+`compatibility: 'mocha'` (formerly `mocha: true`) gives the tests, the suites and the hooks the `this` of mocha:
+`this.skip()` skips the test, in a suite or a `before` the tests of its suite, in a `beforeEach` the test;
+`this.timeout(ms)` is the timeout of the test or the hook, of a suite its tests and hooks (see Compatibility). It is
+deprecated, for a migration: each warns once (`EXNODE_MOCHA_THIS`), and the types mark it. From esmocha, the imports of `esmocha` become the ones of `expect-node`, `esmocha` becoming `exnode`, and
 `esmocha.mock(specifier, import(specifier))`, every export mocked, becomes `exnode.mock<typeof import(specifier)>(specifier)`.
 
 The root hook plugins of mocha, given to it by `--require` (a module exporting `mochaHooks`: `beforeAll`, `beforeEach`,
