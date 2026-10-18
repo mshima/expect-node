@@ -66,6 +66,21 @@ describe('the expect-node bin', () => {
     expect(keep.code).toBe(0);
     expect(keep.stdout).toMatch(/lib\.ts +\| 100\.00 \| +100\.00 \| +100\.00/);
     expect(await runIn('reimport', '--config', 'reimport.config.ts')).toMatchObject({ code: 0 });
+    // The reimport of a mock alone.
+    expect(await runIn('reimport', '--config', 'by-mock.config.ts')).toMatchObject({ code: 0 });
+  });
+
+  it('fails a test or a suite declared only by --forbid-only or forbidOnly, at its site', async () => {
+    expect(await runIn('only')).toMatchObject({ code: 0 });
+    for (const args of [['--forbid-only'], ['--config', 'forbid.config.ts']]) {
+      const { code, stdout } = await runIn('only', ...args);
+      expect(code).toBe(1);
+      expect(stdout).toContain('a test only is declared only, which --forbid-only forbids');
+      expect(stdout).toContain('a suite only is declared only, which --forbid-only forbids');
+      expect(stdout).toContain('test at only.check.ts:3:4\n');
+      expect(stdout).toContain('test at only.check.ts:5:10\n');
+      expect(stdout).toMatch(/ℹ pass 1\nℹ fail 2\n/);
+    }
   });
 
   it('runs the test files of a directory given, of the patterns of the configuration in it, else of the default ones', async () => {
