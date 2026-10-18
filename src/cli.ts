@@ -14,6 +14,7 @@ import { ownModule } from './caller.ts';
 import type { Config } from './config.ts';
 import { mergeCoverageOf } from './coverage.ts';
 import { ENV } from './env.ts';
+import { givenFiles } from './files.ts';
 import { pool } from './pool.ts';
 
 // A runner, never a test file: run by a test (its own tests), node:test would take it for one of its files.
@@ -39,13 +40,18 @@ const config: Config = configFile ? ((await import(pathToFileURL(configFile).hre
 await config.setup?.();
 
 const { coverage = {} } = config;
-/** The test files given, else the ones of the configuration, else the default patterns of node:test. */
-const files = positionals.length > 0 ? positionals.map(file => resolve(file)) : undefined;
+/**
+ * The test files given (a directory as its test files, see files.ts), else the ones of the configuration, else the
+ * default patterns of node:test.
+ */
+const files = positionals.length > 0 ? givenFiles(positionals, config.files) : undefined;
 const testFiles = files ? { files } : { globPatterns: config.files };
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
 // Watched, the test files run again by node:test each in a process of its own: a worker keeps the modules it imported.
 if (values.watch && workers) process.stderr.write('--watch runs each test file in a process of its own, not by the workers\n');
 const workersPool = workers && !values.watch ? pool(files, config.files, workers) : undefined;
+/** The compatibility of the tests (see compatibility.ts), `mocha: true` the one of mocha. */
+const compatibility = config.compatibility ?? (config.mocha ? 'mocha' : 'node');
 /** The setup files and the modules of mocha hooks, by the test processes only (see setup.ts). */
 const setupFiles = (config.setupFiles ?? []).map(file => resolve(file));
 const mochaHooks = config.mochaHooks ?? [];
@@ -56,7 +62,9 @@ const setup =
 Object.assign(process.env, {
   // Every snapshot written again.
   ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
-  ...(config.mocha ? { [ENV.mocha]: 'true' } : {}),
+  ...(compatibility === 'node' ? {} : { [ENV.compatibility]: compatibility }),
+  // The timeouts of mocha start from the one of the configuration (see mocha.ts).
+  ...(compatibility === 'mocha' && config.timeout !== undefined ? { [ENV.timeout]: String(config.timeout) } : {}),
   ...(config.reimport ? { [ENV.reimport]: 'true' } : {}),
   ...(values['forbid-only'] || config.forbidOnly ? { [ENV.forbidOnly]: 'true' } : {}),
   ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
@@ -70,7 +78,9 @@ const stream = run({
   }),
   ...(values.watch ? { watch: true } : {}),
   execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setupImport],
-  ...(config.timeout === undefined ? {} : { timeout: config.timeout }),
+  // The timeouts of mocha are the ones of expect-node, from the one of the configuration (node:test would time out the
+  // test files with it too, on node 22).
+  ...(config.timeout === undefined || compatibility === 'mocha' ? {} : { timeout: config.timeout }),
   ...(values.coverage
     ? {
         coverage: true,

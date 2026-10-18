@@ -35,13 +35,29 @@ describe('the expect-node bin', () => {
     expect(stdout).toContain('the hook failed');
   });
 
-  it('gives the this of mocha to the test files by the mocha configuration, each use deprecated', async () => {
+  it('gives the this of mocha to the test files by the compatibility mocha, each use deprecated', async () => {
     const { code, stdout } = await runIn('mocha');
     expect(code).toBe(1);
-    expect(stdout).toMatch(/ℹ pass 2\nℹ fail 0\nℹ cancelled 1\nℹ skipped 4\n/);
-    expect(stdout).toContain('test timed out after 1ms');
+    expect(stdout).toMatch(/ℹ pass 3\nℹ fail 2\nℹ cancelled 0\nℹ skipped 4\n/);
+    expect(stdout).toContain('Timeout of 1ms exceeded');
+    expect(stdout).toContain('Timeout of 30ms exceeded');
     expect(stdout.match(/this\.skip\(\) of mocha is deprecated/g)).toHaveLength(1);
     expect(stdout.match(/this\.timeout\(\) of mocha is deprecated/g)).toHaveLength(1);
+    // The compatibility mocha by its former option.
+    expect(await runIn('mocha', '--config', 'legacy.config.ts')).toMatchObject({ code: 0 });
+  });
+
+  it('takes the timeouts of the compatibility of the tests, node:test by default', async () => {
+    // node:test: the timeout of a suite the one of the whole suite, its second test cancelled.
+    const node = await runIn('compatibility', '--config', 'node.config.ts');
+    expect(node.code).toBe(1);
+    expect(node.stdout).toMatch(/ℹ pass 2\nℹ fail 0\nℹ cancelled 1\n/);
+    expect(node.stdout).toContain("'test timed out after 150ms'");
+    // Vitest: the timeout of a suite the one of each of its tests, the one longer than it cancelled.
+    const vitest = await runIn('compatibility', '--config', 'vitest.config.ts');
+    expect(vitest.code).toBe(1);
+    expect(vitest.stdout).toMatch(/ℹ pass 4\nℹ fail 0\nℹ cancelled 1\n/);
+    expect(await runIn('compatibility', '--config', 'jest.config.ts')).toMatchObject({ code: 0 });
   });
 
   it('runs the test files by workers, each one file after the other, the hooks of the setup files and the mocks of each', async () => {
@@ -110,6 +126,15 @@ describe('the expect-node bin', () => {
       expect(await exited).toBe(130);
       await rm(folder, { recursive: true, force: true });
     }
+  });
+
+  it('runs the test files of a directory given, of the patterns of the configuration in it, else of the default ones', async () => {
+    const { code, stdout } = await run('.');
+    expect(code).toBe(0);
+    expect(stdout).toContain('sums');
+    expect(stdout).toContain('has the environment of the setup');
+    expect(stdout).not.toContain('fails');
+    expect((await runIn('defaults', '.')).stdout).toContain('runs by the default patterns');
   });
 
   it('runs by workers the test files of the default patterns', async () => {

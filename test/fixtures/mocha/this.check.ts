@@ -1,4 +1,4 @@
-import { after, afterEach, before, beforeEach, describe, it } from '../../../src/index.ts';
+import { after, afterEach, before, beforeEach, describe, expect, it } from '../../../src/index.ts';
 
 describe('the this of mocha', function () {
   this.timeout(1);
@@ -6,8 +6,12 @@ describe('the this of mocha', function () {
     this.skip();
     throw new Error('not skipped');
   });
-  it('has this.timeout, of no effect', function () {
-    this.timeout(5);
+  it('takes a timeout of its own from then by this.timeout', async function () {
+    expect(this.timeout(200)).toBe(200);
+    await new Promise(resolve => setTimeout(resolve, 50));
+  });
+  it('fails a timeout of another compatibility', () => {
+    expect(() => it('a test', () => undefined, 1000)).toThrow('which takes this.timeout(ms)');
   });
   describe('a suite in it', () => {
     it('times out by the timeout of its parent suite', async () => {
@@ -49,4 +53,16 @@ describe('a beforeEach skipping', () => {
     throw new Error('not skipped');
   });
   it('runs', () => undefined);
+});
+
+describe('the timeout of the configuration', function () {
+  expect(this.timeout()).toBe(30);
+  // The timeout of a hook its own: 0, none.
+  before(function () {
+    expect(this.timeout()).toBe(30);
+    this.timeout(0);
+  });
+  it('fails a test without its own after it', async () => {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  });
 });

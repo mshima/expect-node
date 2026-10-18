@@ -1,3 +1,5 @@
+import type { Compatibility } from './compatibility.ts';
+
 /** The configuration of a run of expect-node (see cli.ts), in an expect-node.config.ts (or .mts, .js, .mjs) of the cwd. */
 export type Config = {
   /** The test files, by glob patterns from the cwd: the default patterns of node:test when none. */
@@ -39,9 +41,22 @@ export type Config = {
    */
   reporters?: string[];
   /**
-   * The `this` of mocha in the tests, the suites and the hooks, for a migration from mocha or esmocha: `this.skip()`, and
-   * `this.timeout(ms)` of a suite, the timeout of its tests. Deprecated: each warns once.
+   * The API the tests are written for, `node` by default, of node:test: the format of their timeouts, and with `mocha`
+   * the `this` of mocha.
+   *
+   * - `node`: `{ timeout }` before the function of a test or a suite (the timeout of the whole suite), after the one of a
+   *   hook.
+   * - `vitest`: `{ timeout }` before or a number after the function of a test or a suite (the timeout of each of its
+   *   tests), a number after the one of a hook.
+   * - `jest`: a number after the function of a test or a hook; a suite takes none.
+   * - `mocha`: `this.timeout(ms)` in a test, a hook or a suite (the one of its tests and hooks), from then like mocha, 0
+   *   for none, starting from `timeout`; `this.skip()` in a test, a suite, a `before` (the tests of its suite) or a
+   *   `beforeEach` (its test). The `this` of mocha is deprecated, for a migration: each warns once.
+   *
+   * A timeout in the format of another compatibility fails, never ignored.
    */
+  compatibility?: Compatibility;
+  /** @deprecated `compatibility: 'mocha'`. */
   mocha?: boolean;
   /**
    * While a module is mocked, the modules of the code imported after a mock imported again, like quibble of esmocha:

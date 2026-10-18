@@ -4,18 +4,15 @@
  * once for several test files instead of once per test file. The reporters, the summary and the coverage stay the ones
  * of node:test.
  */
-import { globSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { availableParallelism, tmpdir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
+import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
 import { ownModule } from './caller.ts';
 import { ENV } from './env.ts';
-
-const EXTENSIONS = '{cjs,mjs,js,cts,mts,ts}';
-/** The default patterns of node:test. */
-const DEFAULT_PATTERNS = ['*.test', '*-test', '*_test', 'test-*', 'test', 'test/**/*'].map(name => `**/${name}.${EXTENSIONS}`);
+import { globFiles } from './files.ts';
 
 /**
  * The workers of the test files given, else of the patterns, else of the default ones: as many as given, as the cores
@@ -23,12 +20,7 @@ const DEFAULT_PATTERNS = ['*.test', '*-test', '*_test', 'test-*', 'test', 'test/
  * close once it ran.
  */
 export const pool = (files: string[] | undefined, patterns: string[] | undefined, workers: number | true) => {
-  const queue =
-    files ??
-    globSync(patterns ?? DEFAULT_PATTERNS)
-      .filter(file => !file.split(sep).includes('node_modules'))
-      .map(file => resolve(file))
-      .sort();
+  const queue = files ?? globFiles(patterns);
   const count = Math.min(workers === true ? availableParallelism() : workers, queue.length);
   const folder = mkdtempSync(join(tmpdir(), 'exnode-'));
   // A named pipe on Windows.
