@@ -66,6 +66,8 @@ describe('the expect-node bin', () => {
     expect(keep.code).toBe(0);
     expect(keep.stdout).toMatch(/lib\.ts +\| 100\.00 \| +100\.00 \| +100\.00/);
     expect(await runIn('reimport', '--config', 'reimport.config.ts')).toMatchObject({ code: 0 });
+    // The reimport of a mock alone.
+    expect(await runIn('reimport', '--config', 'by-mock.config.ts')).toMatchObject({ code: 0 });
   });
 
   it('runs by workers the test files of the default patterns', async () => {

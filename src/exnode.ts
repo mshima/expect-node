@@ -23,15 +23,22 @@ export const resetAllMocks = () => mocker.resetAllMocks();
 export const restoreAllMocks = () => mocker.restoreAllMocks();
 
 /**
+ * The options of a mock: `reimport`, the modules of the code imported before it imported again while it is, like the
+ * `reimport` of the configuration for this mock alone.
+ */
+type MockOptions = { reimport?: boolean };
+
+/**
  * Mocks a module for the imports after it: import the module under test after it (`await import`), as Vitest hoists
- * vi.mock; a module imported before keeps the module itself, but with `reimport` (see the generation of mocks.ts). Its
- * exports over the ones of the module itself (a factory gets them, like importOriginal), the modules importing other
- * names of it still linking; without them, every export mocked by jest-mock (its functions mock functions), like
- * esmocha. Gives the exports of the mock.
+ * vi.mock; a module imported before keeps the module itself, but with `reimport`, of the configuration or of its
+ * options (see the generation of mocks.ts). Its exports over the ones of the module itself (a factory gets them, like
+ * importOriginal), the modules importing other names of it still linking; without them, every export mocked by
+ * jest-mock (its functions mock functions), like esmocha. Gives the exports of the mock.
  */
 const mock = (async <T extends Record<string, unknown> = Record<string, unknown>>(
   specifier: string,
   exports?: Partial<T> | ((importOriginal: <O = T>() => Promise<O>) => unknown),
+  { reimport = false }: MockOptions = {},
 ): Promise<T> => {
   const url = urlOf(specifier);
   const original = await actualOf(url);
@@ -40,13 +47,18 @@ const mock = (async <T extends Record<string, unknown> = Record<string, unknown>
       ? mocker.generateFromMetadata(mocker.getMetadata(original)!)
       : ((typeof exports === 'function' ? await exports(async <O>() => original as O) : exports) as Record<string, unknown>);
   const module = { ...original, ...given };
-  setMock(url, module, original);
+  setMock(url, module, original, reimport);
   return module as T;
 }) as {
-  <T extends Record<string, unknown> = Record<string, unknown>>(specifier: string): Promise<Mocked<T>>;
+  <T extends Record<string, unknown> = Record<string, unknown>>(
+    specifier: string,
+    exports?: undefined,
+    options?: MockOptions,
+  ): Promise<Mocked<T>>;
   <T extends Record<string, unknown> = Record<string, unknown>>(
     specifier: string,
     exports: Partial<T> | ((importOriginal: <O = T>() => Promise<O>) => unknown),
+    options?: MockOptions,
   ): Promise<T>;
 };
 
