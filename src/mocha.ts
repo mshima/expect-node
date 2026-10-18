@@ -3,11 +3,8 @@
  * mocha (see compatibility.ts): for a migration from mocha or esmocha, deprecated, each of them warning once.
  */
 import { COMPATIBILITY } from './compatibility.ts';
-import { ENV } from './env.ts';
 
 export const MOCHA = COMPATIBILITY === 'mocha';
-/** The timeout of the configuration, the one of the tests and the hooks of mocha but their own. */
-export const DEFAULT_TIMEOUT = process.env[ENV.timeout] === undefined ? undefined : Number(process.env[ENV.timeout]);
 
 /** The `this` of a test, a suite or a hook, with the compatibility mocha only. */
 export type MochaThis = {

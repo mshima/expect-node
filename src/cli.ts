@@ -63,8 +63,8 @@ Object.assign(process.env, {
   // Every snapshot written again.
   ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
   ...(compatibility === 'node' ? {} : { [ENV.compatibility]: compatibility }),
-  // The timeouts of mocha start from the one of the configuration (see mocha.ts).
-  ...(compatibility === 'mocha' && config.timeout !== undefined ? { [ENV.timeout]: String(config.timeout) } : {}),
+  // The timeout of each test and hook but their own (see compatibility.ts).
+  ...(config.timeout === undefined ? {} : { [ENV.timeout]: String(config.timeout) }),
   ...(config.reimport ? { [ENV.reimport]: 'true' } : {}),
   ...(values['forbid-only'] || config.forbidOnly ? { [ENV.forbidOnly]: 'true' } : {}),
   ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
@@ -78,9 +78,6 @@ const stream = run({
   }),
   ...(values.watch ? { watch: true } : {}),
   execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setupImport],
-  // The timeouts of mocha are the ones of expect-node, from the one of the configuration (node:test would time out the
-  // test files with it too, on node 22).
-  ...(config.timeout === undefined || compatibility === 'mocha' ? {} : { timeout: config.timeout }),
   ...(values.coverage
     ? {
         coverage: true,

@@ -8,6 +8,12 @@ export type Compatibility = 'node' | 'vitest' | 'jest' | 'mocha';
 
 export const COMPATIBILITY = (process.env[ENV.compatibility] ?? 'node') as Compatibility;
 
+/**
+ * The timeout of the configuration, the one of each test and hook but their own: given to them by expect-node, not to
+ * node:test, which on node 22 times out a whole test file with it.
+ */
+export const DEFAULT_TIMEOUT = process.env[ENV.timeout] === undefined ? undefined : Number(process.env[ENV.timeout]);
+
 /** Where a timeout is given: before the function (`{ timeout }`) or after it (a number, or `{ timeout }` of a hook). */
 export type Format = 'options before' | 'number after' | 'options after';
 type Of = 'test' | 'suite' | 'hook';

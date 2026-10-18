@@ -3,9 +3,9 @@ import * as nodeTest from 'node:test';
 import { format } from 'node:util';
 
 import { callAt, callerSite, type Site } from './caller.ts';
-import { checkTimeout, COMPATIBILITY, type Format } from './compatibility.ts';
+import { checkTimeout, COMPATIBILITY, DEFAULT_TIMEOUT, type Format } from './compatibility.ts';
 import { ENV } from './env.ts';
-import { DEFAULT_TIMEOUT, MOCHA, type MochaThis, mochaThis, timed } from './mocha.ts';
+import { MOCHA, type MochaThis, mochaThis, timed } from './mocha.ts';
 import { setSnapshotTest, snapshotFileOf } from './snapshots.ts';
 
 /**
@@ -25,16 +25,21 @@ let skipNext = false;
 
 /** What a test gets: skip ends it skipped, like the context of Vitest. */
 export type TestContext = { skip: (message?: string) => never };
+/**
+ * What a test gets, typed for every compatibility: the context, which a test of a parameter gets with Jest and mocha as
+ * `done` too, to call once it ends, an error failing it (with node:test and Vitest, not a function).
+ */
+export type Done = ((error?: unknown) => void) & TestContext;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Fn = (this: MochaThis, context: TestContext) => any;
+type Fn = (this: MochaThis, context: Done) => any;
 type Options = { timeout?: number; skip?: boolean; only?: boolean; todo?: boolean };
 /** A test or a suite: its name, its options or not, its function, the timeout of Vitest and Jest after it. */
 type Declare = (name: string, optionsOrFn?: Options | Fn, fnOrTimeout?: Fn | number) => void;
 
 /** The function of a case of a table, given its values. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Case = (...args: any[]) => unknown;
-type Each = (table: readonly unknown[]) => (name: string, optionsOrFn: Options | Case, fn?: Case) => void;
+type Case = (this: MochaThis, ...args: any[]) => unknown;
+type Each = (table: readonly unknown[]) => (name: string, optionsOrFn: Options | Case, fnOrTimeout?: Case | number) => void;
 type Declaring = Declare & {
   each: Each;
   skipIf: (condition: unknown) => Declare;
@@ -66,6 +71,20 @@ const nameOf = (name: string, args: readonly unknown[]) => {
 const SKIPPED = Symbol('skipped');
 
 /**
+ * Calls the function of a test with its argument: with Jest and mocha, a function of a parameter ends by calling it
+ * (`done`, an error failing the test), its `skip` the one of the context; else the context of Vitest.
+ */
+const DONE = COMPATIBILITY === 'jest' || COMPATIBILITY === 'mocha';
+const callTest = (fn: Fn, self: MochaThis | undefined, context: TestContext): unknown =>
+  DONE && fn.length > 0
+    ? new Promise<void>((resolve, reject) => {
+        const done = Object.assign((error?: unknown) => (error ? reject(error as Error) : resolve()), context);
+        void fn.call(self!, done);
+      })
+    : // The context, of no call: a function of a parameter gets `done` with Jest and mocha only.
+      fn.call(self!, context as Done);
+
+/**
  * The function of a test with the context of Vitest (node gives a callback to a function of two parameters), and the
  * snapshots of its file.
  */
@@ -87,9 +106,9 @@ const withContext =
       }
       await (MOCHA
         ? timed(timeoutOf(of) ?? DEFAULT_TIMEOUT, async timeout => {
-            await fn.call(mochaThis(context.skip, timeout)!, context);
+            await callTest(fn, mochaThis(context.skip, timeout), context);
           })
-        : fn.call(undefined as unknown as MochaThis, context));
+        : callTest(fn, undefined, context));
     } catch (error) {
       if (error === SKIPPED) {
         file?.skipped.add(name);
@@ -103,30 +122,37 @@ const withContext =
   };
 
 const declaring = (of: 'test' | 'suite', declare: (name: string, options: Options, fn?: Fn) => unknown): Declaring => {
+  /** A test or a suite of its options, its timeout in the format of the compatibility already. */
+  const declareChecked = (name: string, options: Options, fn?: Fn) => {
+    // A test or a suite only, forbidden: a test failing, at its site, like mocha --forbid-only.
+    if (options.only && FORBID_ONLY) {
+      callAt(callerSite(), nodeTest.it, [
+        name,
+        () => {
+          throw new Error(`${name} is declared only, which --forbid-only forbids`);
+        },
+      ]);
+      return;
+    }
+    void declare(name, options, fn);
+  };
   const withOptions =
     (extra: Options): Declare =>
     (name, optionsOrFn, fnOrTimeout) => {
       const [options, fn, timeoutFormat] = argumentsOf(optionsOrFn, fnOrTimeout);
       if (timeoutFormat) checkTimeout(of, timeoutFormat);
-      const merged = { ...options, ...extra };
-      // A test or a suite only, forbidden: a test failing, at its site, like mocha --forbid-only.
-      if (merged.only && FORBID_ONLY) {
-        callAt(callerSite(), nodeTest.it, [
-          name,
-          () => {
-            throw new Error(`${name} is declared only, which --forbid-only forbids`);
-          },
-        ]);
-        return;
-      }
-      void declare(name, merged, fn);
+      declareChecked(name, { ...options, ...extra }, fn);
     };
   const declared = withOptions({});
-  const each: Each = table => (name, optionsOrFn, fn) => {
-    const [options, run] = argumentsOf<Case>(optionsOrFn, fn);
+  // The timeout of the cases of a table in the format it is given, a case the `this` of mocha.
+  const each: Each = table => (name, optionsOrFn, fnOrTimeout) => {
+    const [options, run, timeoutFormat] = argumentsOf<Case>(optionsOrFn, fnOrTimeout);
+    if (timeoutFormat) checkTimeout(of, timeoutFormat);
     for (const row of table) {
       const args = Array.isArray(row) ? row : [row];
-      declared(nameOf(name, args), options, () => run!(...args));
+      declareChecked(nameOf(name, args), options, function (this: MochaThis) {
+        return run!.apply(this, args);
+      });
     }
   };
   return Object.assign(declared, {
@@ -160,7 +186,7 @@ export const describe = declaring('suite', (title, { timeout, ...options }, fn) 
                 return timeoutOf(of) ?? DEFAULT_TIMEOUT;
               },
             )!,
-            {} as TestContext,
+            {} as Done,
           );
         } finally {
           suite = parent;
@@ -173,8 +199,8 @@ export const it = declaring('test', (title, options, fn) => {
   const name = [...suite.titles, title].join(' ');
   // A test skipped keeps its snapshots.
   if (options.skip) snapshotFileOf(site.file)?.skipped.add(name);
-  // A test of mocha within its own timeout (see timed of mocha.ts).
-  const timeout = MOCHA ? Infinity : (options.timeout ?? timeoutOf(suite));
+  // A test of mocha within its own timeout (see timed of mocha.ts); else its own, of its suite or of the configuration.
+  const timeout = MOCHA ? Infinity : (options.timeout ?? timeoutOf(suite) ?? DEFAULT_TIMEOUT);
   return callAt(site, nodeTest.it, [
     title,
     timeout === undefined ? options : { ...options, timeout },
@@ -202,8 +228,8 @@ const hook =
   (register: typeof nodeTest.before, skip: (of: Suite) => void = () => undefined) =>
   (site: Site, fn: Hook, given?: HookTimeout): void => {
     if (given !== undefined) checkTimeout('hook', typeof given === 'number' ? 'number after' : 'options after');
-    const timeout = typeof given === 'number' ? given : given?.timeout;
-    // A hook of mocha within its own timeout (see timed of mocha.ts).
+    const timeout = (typeof given === 'number' ? given : given?.timeout) ?? DEFAULT_TIMEOUT;
+    // A hook of mocha within its own timeout (see timed of mocha.ts); else its own or of the configuration.
     const options = MOCHA ? { timeout: Infinity } : { ...(timeout === undefined ? {} : { timeout }) };
     const of = suite;
     const call = async (self: MochaThis | undefined) => {
