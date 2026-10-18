@@ -27,6 +27,7 @@ const { values, positionals } = parseArgs({
     updateSnapshot: { type: 'boolean' },
     reporter: { type: 'string', multiple: true },
     workers: { type: 'string' },
+    watch: { type: 'boolean' },
   },
   allowPositionals: true,
 });
@@ -41,7 +42,9 @@ const { coverage = {} } = config;
 const files = positionals.length > 0 ? positionals.map(file => resolve(file)) : undefined;
 const testFiles = files ? { files } : { globPatterns: config.files };
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
-const workersPool = workers ? pool(files, config.files, workers) : undefined;
+// Watched, the test files run again by node:test each in a process of its own: a worker keeps the modules it imported.
+if (values.watch && workers) process.stderr.write('--watch runs each test file in a process of its own, not by the workers\n');
+const workersPool = workers && !values.watch ? pool(files, config.files, workers) : undefined;
 /** The setup files and the modules of mocha hooks, by the test processes only (see setup.ts). */
 const setupFiles = (config.setupFiles ?? []).map(file => resolve(file));
 const mochaHooks = config.mochaHooks ?? [];
@@ -63,6 +66,7 @@ const stream = run({
     ...testFiles,
     concurrency: config.concurrency ?? true,
   }),
+  ...(values.watch ? { watch: true } : {}),
   execArgv: [...(config.import ?? []).flatMap(module => ['--import', resolve(module)]), ...setupImport],
   ...(config.timeout === undefined ? {} : { timeout: config.timeout }),
   ...(values.coverage
@@ -79,6 +83,8 @@ stream.on('test:fail', () => {
 // The coverage merged by file before the reporters read it, its minimums checked on it (see coverage.ts).
 mergeCoverageOf(stream as unknown as Parameters<typeof mergeCoverageOf>[0], coverage);
 if (workersPool) stream.once('close', workersPool.close);
+// Watched until an interruption (Ctrl+C), which ends the run as an exit: its test processes closed, its coverage written.
+if (values.watch) process.once('SIGINT', () => process.exit(130));
 /**
  * A reporter, `<name>[:<file>]`: one of node:test (spec, tap, dot, junit, lcov) or the path of a module of one (its
  * default export), to the terminal or to the file.

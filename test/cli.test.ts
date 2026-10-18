@@ -1,7 +1,9 @@
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { execFile, spawn } from 'node:child_process';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 import { describe, expect, it } from '../src/index.ts';
@@ -66,6 +68,33 @@ describe('the expect-node bin', () => {
     expect(keep.code).toBe(0);
     expect(keep.stdout).toMatch(/lib\.ts +\| 100\.00 \| +100\.00 \| +100\.00/);
     expect(await runIn('reimport', '--config', 'reimport.config.ts')).toMatchObject({ code: 0 });
+  });
+
+  it('runs a test file again when it changes, by --watch, each in a process of its own', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-watch-'));
+    const file = join(folder, 'watched.test.ts');
+    const index = pathToFileURL(join(import.meta.dirname, '../src/index.ts')).href;
+    const write = (name: string) =>
+      writeFile(file, `import { it } from ${JSON.stringify(index)};\n\nit(${JSON.stringify(name)}, () => undefined);\n`);
+    await write('first');
+    const child = spawn(process.execPath, [cli, '--watch', '--workers', '2', file], { cwd: folder });
+    let output = '';
+    child.stdout.on('data', (data: Buffer) => (output += String(data)));
+    child.stderr.on('data', (data: Buffer) => (output += String(data)));
+    const until = async (text: string) => {
+      while (!output.includes(text)) await sleep(50);
+    };
+    try {
+      await until('✔ first');
+      await write('second');
+      await until('✔ second');
+      expect(output).toContain('--watch runs each test file in a process of its own, not by the workers');
+    } finally {
+      const exited = new Promise(resolve => child.once('exit', resolve));
+      child.kill('SIGINT');
+      expect(await exited).toBe(130);
+      await rm(folder, { recursive: true, force: true });
+    }
   });
 
   it('runs by workers the test files of the default patterns', async () => {

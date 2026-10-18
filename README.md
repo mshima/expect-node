@@ -134,8 +134,10 @@ or `new`, or `none`).
 
 ## The bin
 
-`exnode [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
+`exnode [--coverage] [--watch] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
+`--watch` runs a test file again when it or a module it imports changes, by node:test, until Ctrl+C: each test file in a
+process of its own, not by the workers, a worker keeping the modules it imported.
 
 The configuration is an `expect-node.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
 
