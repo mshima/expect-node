@@ -6,4 +6,4 @@
  */
 export { expect } from './expect.ts';
 export { clearAllMocks, exnode, fn, isMockFunction, resetAllMocks, restoreAllMocks, spyOn } from './exnode.ts';
-export { after, afterAll, afterEach, before, beforeAll, beforeEach, describe, it, test, type TestContext } from './test.ts';
+export { after, afterAll, afterEach, before, beforeAll, beforeEach, describe, it, test, type Done, type TestContext } from './test.ts';

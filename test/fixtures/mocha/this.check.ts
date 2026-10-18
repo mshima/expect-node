@@ -66,3 +66,15 @@ describe('the timeout of the configuration', function () {
     await new Promise(resolve => setTimeout(resolve, 100));
   });
 });
+
+describe('the callbacks of mocha', () => {
+  it('ends by its callback', function (done) {
+    setTimeout(done, 10);
+  });
+  it('fails by an error given to its callback', function (done) {
+    setTimeout(() => done(new Error('given to done')), 10);
+  });
+  it.each([[1]])('gives a case of a table the this of mocha, %s', function () {
+    this.skip();
+  });
+});

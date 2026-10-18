@@ -9,6 +9,7 @@ it('takes the timeouts of node:test, not the ones of Vitest and Jest', { timeout
     'The timeout of a test as a number after its function is not of the compatibility node, which takes { timeout } before its function; it is of vitest and jest',
   );
   expect(() => beforeEach(() => undefined, 1000)).toThrow('The timeout of a hook as a number after its function');
+  expect(() => it.each([[1]])('a case', () => undefined, 1000)).toThrow('The timeout of a test as a number after its function');
 });
 
 // The timeout of the whole suite: its second test ends after it.

@@ -18,11 +18,10 @@ const mocked = new Map<
 >();
 /**
  * Each change of the mocks. With the `reimport` of the configuration or of a mock, while a module is mocked so, the
- * modules imported
- * after a change are each a module of its own again (but the packages and expect-node): the module under test imported
- * again sees the mocks, even when the test file imported it before, like quibble of esmocha. A module imported again is
- * a second instance of it (its state, its classes of their own), whose coverage node:test reports apart and the bin
- * merges (see coverage.ts): not the default.
+ * modules imported after a change are each a module of its own again (but the packages and expect-node): the module
+ * under test imported again sees the mocks, even when the test file imported it before, like quibble of esmocha. A
+ * module imported again is a second instance of it (its state, its classes of their own), whose coverage node:test
+ * reports apart and the bin merges (see coverage.ts): not the default.
  */
 let generation = 0;
 const REIMPORT = process.env[ENV.reimport] === 'true';
@@ -30,8 +29,8 @@ const MOCKED = Symbol.for('exnode.mocked');
 const MOCK_PROTOCOL = 'exnode-mock:';
 /** A specifier resolved from another module (`exnode-resolve:<[specifier, parent URL] as JSON>`). */
 const RESOLVE_PROTOCOL = 'exnode-resolve:';
-// Only while a module is mocked: once none is, the modules imported before any mock are the ones of the imports again.
-// While a module is mocked with reimport, of the configuration or of its mock.
+// Only while a module is mocked with reimport, of the configuration or of its mock: once none is, the modules imported
+// before are the ones of the imports again.
 const isFresh = (url: string) =>
   [...mocked.values()].some(({ reimport }) => REIMPORT || reimport) &&
   url.startsWith('file:') &&

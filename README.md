@@ -97,7 +97,8 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
 - `describe`, `it` (and `test`), with `.each(table)` (its name with `%s`, `%d`, `%i`, `%j`, `%o`), `.skipIf(condition)`,
   `.runIf(condition)`, `.only`, `.skip` and `.todo(name)`; the options before the function, the timeout in the format
   of the compatibility (see Compatibility).
-  The function of a test gets a context whose `skip()` ends it skipped.
+  The function of a test gets a context whose `skip()` ends it skipped; with the compatibility `jest` or `mocha`, a
+  function of a parameter gets `done` instead, to call once it ends (an error failing it), its `skip()` too.
 - `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, the timeout after the function in the format of the compatibility,
   which may end by a callback it gets (`done`, an error failing the hook) like Jest and mocha; `before` and `after`,
   the names of mocha.
@@ -191,8 +192,10 @@ the one it is of, never ignored.
 | `jest`           | a number after the function               | none                                                  | a number after the function      |
 | `mocha`          | `this.timeout(ms)`                        | `this.timeout(ms)`: of each of its tests and hooks    | `this.timeout(ms)`               |
 
-With `mocha`, `this.timeout(ms)` in a test or a hook running is its timeout from then, `0` for none, like mocha: the
-timeouts are expect-node's, from the `timeout` of the configuration, node:test not taking one for a test running.
+The `timeout` of the configuration is the one of each test and hook but their own, which expect-node gives them:
+node:test, on node 22, would time out a whole test file with it. With `mocha`, `this.timeout(ms)` in a test or a hook
+running is its timeout from then, `0` for none, like mocha: the timeouts are expect-node's, from the `timeout` of the
+configuration, node:test not taking one for a test running.
 
 ### From mocha or esmocha
 

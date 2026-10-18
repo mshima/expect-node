@@ -22,9 +22,12 @@ export type Config = {
    * the ones of mocha --parallel.
    */
   mochaHooks?: string[];
-  /** The timeout of each test and hook, in milliseconds. */
+  /**
+   * The timeout of each test and hook but their own, in milliseconds: given to them by expect-node (node:test, on node
+   * 22, would time out a whole test file with it).
+   */
   timeout?: number;
-  /** The test files run at once: true for as many as node:test chooses. */
+  /** The test files run at once: true for as many as node:test chooses; with `workers`, the workers instead. */
   concurrency?: number | boolean;
   /**
    * The test files run by this many processes reused, true for as many as the cores (the `--workers <n>` of the bin, 0

@@ -10,3 +10,15 @@ it('takes the timeouts of Jest, a suite none', () => {
     'The timeout of a suite as a number after its function is not of the compatibility jest, which takes none; it is of vitest',
   );
 }, 1000);
+
+it.each([[1, 2]])(
+  'takes the timeout of a case after its function, %s doubled is %s',
+  (value, doubled) => {
+    expect(value * 2).toBe(doubled);
+  },
+  1000,
+);
+
+it('ends by its callback', done => {
+  setTimeout(done, 10);
+});

@@ -38,13 +38,23 @@ describe('the expect-node bin', () => {
   it('gives the this of mocha to the test files by the compatibility mocha, each use deprecated', async () => {
     const { code, stdout } = await runIn('mocha');
     expect(code).toBe(1);
-    expect(stdout).toMatch(/ℹ pass 3\nℹ fail 2\nℹ cancelled 0\nℹ skipped 4\n/);
+    expect(stdout).toMatch(/ℹ pass 4\nℹ fail 3\nℹ cancelled 0\nℹ skipped 5\n/);
+    expect(stdout).toContain('given to done');
     expect(stdout).toContain('Timeout of 1ms exceeded');
     expect(stdout).toContain('Timeout of 30ms exceeded');
     expect(stdout.match(/this\.skip\(\) of mocha is deprecated/g)).toHaveLength(1);
     expect(stdout.match(/this\.timeout\(\) of mocha is deprecated/g)).toHaveLength(1);
     // The compatibility mocha by its former option.
     expect(await runIn('mocha', '--config', 'legacy.config.ts')).toMatchObject({ code: 0 });
+  });
+
+  it('gives the timeout of the configuration to each test and hook, not to a whole test file', async () => {
+    for (const args of [[], ['--workers', '1']]) {
+      const { code, stdout } = await runIn('timeouts', ...args);
+      expect(code).toBe(1);
+      expect(stdout).toMatch(/ℹ pass 3\nℹ fail 0\nℹ cancelled 1\n/);
+      expect(stdout).toContain("'test timed out after 100ms'");
+    }
   });
 
   it('takes the timeouts of the compatibility of the tests, node:test by default', async () => {
