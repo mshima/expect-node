@@ -135,8 +135,10 @@ or `new`, or `none`).
 
 ## The bin
 
-`exnode [--coverage] [--forbid-only] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
-parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
+`exnode [--coverage] [--forbid-only] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files or directories...]` runs the test files of the configuration, or the ones given, in
+parallel, each in a process of its own; a directory given is its test files, the ones of the patterns of the
+configuration in it, else of the default patterns of node:test, like mocha. A failed test fails the run; with
+`--coverage`, a coverage under its minimum too.
 `--forbid-only` (or `forbidOnly: true`) fails a test or a suite declared only (`.only`, `{ only: true }`), at its site,
 like mocha: a `.only` left behind fails the run in CI.
 
