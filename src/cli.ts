@@ -28,6 +28,7 @@ const { values, positionals } = parseArgs({
     reporter: { type: 'string', multiple: true },
     workers: { type: 'string' },
     watch: { type: 'boolean' },
+    'forbid-only': { type: 'boolean' },
   },
   allowPositionals: true,
 });
@@ -57,6 +58,7 @@ Object.assign(process.env, {
   ...(values['update-snapshot'] || values.updateSnapshot ? { [ENV.updateSnapshot]: 'all' } : {}),
   ...(config.mocha ? { [ENV.mocha]: 'true' } : {}),
   ...(config.reimport ? { [ENV.reimport]: 'true' } : {}),
+  ...(values['forbid-only'] || config.forbidOnly ? { [ENV.forbidOnly]: 'true' } : {}),
   ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
   ...workersPool?.env,
 });
