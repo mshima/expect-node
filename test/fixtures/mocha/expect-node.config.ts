@@ -1,3 +1,3 @@
 import { defineConfig } from '../../../src/config.ts';
 
-export default defineConfig({ files: ['*.check.ts'], mocha: true });
+export default defineConfig({ files: ['*.check.ts'], compatibility: 'mocha', timeout: 30 });

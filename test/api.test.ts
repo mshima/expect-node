@@ -23,9 +23,12 @@ describe('the API of Jest and Vitest', () => {
   beforeAll(() => {
     calls.push('beforeAll');
   });
-  beforeEach(() => {
-    calls.push('beforeEach');
-  }, 1000);
+  beforeEach(
+    () => {
+      calls.push('beforeEach');
+    },
+    { timeout: 1000 },
+  );
   afterEach(() => {
     calls.push('afterEach');
   });
@@ -37,7 +40,7 @@ describe('the API of Jest and Vitest', () => {
     expect(calls).toEqual(['beforeAll', 'beforeEach']);
   });
 
-  it('takes a timeout after the function, or options before it', { timeout: 1000 }, () => {
+  it('takes its options before the function, its timeout of node:test', { timeout: 1000 }, () => {
     // The hooks of the test before it, then the ones of this one.
     expect(calls).toEqual(['beforeAll', 'beforeEach', 'afterEach', 'beforeEach']);
   });
@@ -48,10 +51,6 @@ describe('the API of Jest and Vitest', () => {
   ])('names a case by its values: %s doubled is %d', (value, doubled) => {
     expect(value * 2).toBe(doubled);
   });
-
-  it('takes a timeout after the function', () => {
-    expect(1).toBe(1);
-  }, 1000);
 
   it.each([[1, 2]])('names a case with a %% and its values: %s', { timeout: 1000 }, (value, doubled) => {
     expect(value * 2).toBe(doubled);

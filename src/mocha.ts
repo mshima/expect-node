@@ -1,23 +1,28 @@
 /**
- * The `this` of mocha in the tests, the suites and the hooks (`this.skip()`, `this.timeout(ms)`), by the `mocha` of the
- * configuration (see config.ts), which the bin gives to the test files (see env.ts): for a migration from mocha or
- * esmocha, deprecated, each of them warning once.
+ * The `this` of mocha in the tests, the suites and the hooks (`this.skip()`, `this.timeout(ms)`), by the compatibility
+ * mocha (see compatibility.ts): for a migration from mocha or esmocha, deprecated, each of them warning once.
  */
+import { COMPATIBILITY } from './compatibility.ts';
 import { ENV } from './env.ts';
 
-const MOCHA = process.env[ENV.mocha] === 'true';
+export const MOCHA = COMPATIBILITY === 'mocha';
+/** The timeout of the configuration, the one of the tests and the hooks of mocha but their own. */
+export const DEFAULT_TIMEOUT = process.env[ENV.timeout] === undefined ? undefined : Number(process.env[ENV.timeout]);
 
-/** The `this` of a test, a suite or a hook, with the `mocha` configuration only. */
+/** The `this` of a test, a suite or a hook, with the compatibility mocha only. */
 export type MochaThis = {
   /** @deprecated The context a test gets: `({ skip }) => skip()`. */
   skip: () => void;
-  /** @deprecated The timeout of the test, of the hook or of the configuration; in a suite, the one of its tests. */
-  timeout: (ms?: number) => void;
+  /**
+   * @deprecated The timeout of the test, of the hook or of the configuration. Its timeout from now, 0 for none, and
+   * gives it; in a suite, the one of its tests and hooks.
+   */
+  timeout: (ms?: number) => number | undefined;
 };
 
 const INSTEAD = {
   skip: 'the context a test gets, ({ skip }) => skip()',
-  timeout: 'the timeout of the test, of the hook or of the configuration (none in a test or a hook)',
+  timeout: 'the timeout of the test, of the hook or of the configuration',
 };
 const warned = new Set<string>();
 const deprecated = (name: keyof typeof INSTEAD) => {
@@ -29,8 +34,8 @@ const deprecated = (name: keyof typeof INSTEAD) => {
   });
 };
 
-/** The `this` of a test, a suite or a hook given what its skip and its timeout do, none without the `mocha` configuration. */
-export const mochaThis = (skip: () => void, timeout: (ms?: number) => void = () => undefined): MochaThis | undefined =>
+/** The `this` of a test, a suite or a hook given what its skip and its timeout do, none but with mocha. */
+export const mochaThis = (skip: () => void, timeout: (ms?: number) => number | undefined): MochaThis | undefined =>
   MOCHA
     ? {
         skip: () => {
@@ -39,7 +44,36 @@ export const mochaThis = (skip: () => void, timeout: (ms?: number) => void = () 
         },
         timeout: ms => {
           deprecated('timeout');
-          timeout(ms);
+          return timeout(ms);
         },
       }
     : undefined;
+
+/**
+ * Runs a test or a hook of mocha within its timeout, which `this.timeout(ms)` sets from then, like mocha (node:test
+ * cannot change the timeout of a test running): the run given gets the timeout to set and to read.
+ */
+export const timed = (initial: number | undefined, run: (timeout: (ms?: number) => number | undefined) => Promise<void>) =>
+  new Promise<void>((resolve, reject) => {
+    let current = initial;
+    let timer: NodeJS.Timeout | undefined;
+    const set = (ms: number | undefined) => {
+      clearTimeout(timer);
+      current = ms;
+      if (ms && Number.isFinite(ms)) timer = setTimeout(() => reject(new Error(`Timeout of ${ms}ms exceeded`)), ms);
+    };
+    set(initial);
+    run(ms => {
+      if (ms !== undefined) set(ms);
+      return current;
+    }).then(
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
