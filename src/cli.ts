@@ -14,6 +14,7 @@ import { ownModule } from './caller.ts';
 import type { Config } from './config.ts';
 import { mergeCoverageOf } from './coverage.ts';
 import { ENV } from './env.ts';
+import { givenFiles } from './files.ts';
 import { pool } from './pool.ts';
 
 // A runner, never a test file: run by a test (its own tests), node:test would take it for one of its files.
@@ -37,8 +38,11 @@ const config: Config = configFile ? ((await import(pathToFileURL(configFile).hre
 await config.setup?.();
 
 const { coverage = {} } = config;
-/** The test files given, else the ones of the configuration, else the default patterns of node:test. */
-const files = positionals.length > 0 ? positionals.map(file => resolve(file)) : undefined;
+/**
+ * The test files given (a directory as its test files, see files.ts), else the ones of the configuration, else the
+ * default patterns of node:test.
+ */
+const files = positionals.length > 0 ? givenFiles(positionals, config.files) : undefined;
 const testFiles = files ? { files } : { globPatterns: config.files };
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
 const workersPool = workers ? pool(files, config.files, workers) : undefined;

@@ -68,6 +68,15 @@ describe('the expect-node bin', () => {
     expect(await runIn('reimport', '--config', 'reimport.config.ts')).toMatchObject({ code: 0 });
   });
 
+  it('runs the test files of a directory given, of the patterns of the configuration in it, else of the default ones', async () => {
+    const { code, stdout } = await run('.');
+    expect(code).toBe(0);
+    expect(stdout).toContain('sums');
+    expect(stdout).toContain('has the environment of the setup');
+    expect(stdout).not.toContain('fails');
+    expect((await runIn('defaults', '.')).stdout).toContain('runs by the default patterns');
+  });
+
   it('runs by workers the test files of the default patterns', async () => {
     expect((await runIn('defaults', '--workers', '2')).stdout).toContain('runs by the default patterns');
   });

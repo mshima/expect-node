@@ -134,8 +134,10 @@ or `new`, or `none`).
 
 ## The bin
 
-`exnode [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
-parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
+`exnode [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files or directories...]` runs the test files of the configuration, or the ones given, in
+parallel, each in a process of its own; a directory given is its test files, the ones of the patterns of the
+configuration in it, else of the default patterns of node:test, like mocha. A failed test fails the run; with
+`--coverage`, a coverage under its minimum too.
 
 The configuration is an `expect-node.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
 
