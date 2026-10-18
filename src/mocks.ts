@@ -12,9 +12,13 @@ import { ENV } from './env.ts';
  * The modules mocked, by URL: their exports, the ones of the module itself, and the generation of the mock, a URL of its
  * own (node keeps a module by its URL, a module mocked again is another one).
  */
-const mocked = new Map<string, { exports: Record<string, unknown>; actual: Record<string, unknown>; generation: number }>();
+const mocked = new Map<
+  string,
+  { exports: Record<string, unknown>; actual: Record<string, unknown>; generation: number; reimport: boolean }
+>();
 /**
- * Each change of the mocks. With the `reimport` of the configuration, while a module is mocked, the modules imported
+ * Each change of the mocks. With the `reimport` of the configuration or of a mock, while a module is mocked so, the
+ * modules imported
  * after a change are each a module of its own again (but the packages and expect-node): the module under test imported
  * again sees the mocks, even when the test file imported it before, like quibble of esmocha. A module imported again is
  * a second instance of it (its state, its classes of their own), whose coverage node:test reports apart and the bin
@@ -27,8 +31,12 @@ const MOCK_PROTOCOL = 'exnode-mock:';
 /** A specifier resolved from another module (`exnode-resolve:<[specifier, parent URL] as JSON>`). */
 const RESOLVE_PROTOCOL = 'exnode-resolve:';
 // Only while a module is mocked: once none is, the modules imported before any mock are the ones of the imports again.
+// While a module is mocked with reimport, of the configuration or of its mock.
 const isFresh = (url: string) =>
-  REIMPORT && mocked.size > 0 && url.startsWith('file:') && !url.startsWith(OWN) && !url.includes('/node_modules/');
+  [...mocked.values()].some(({ reimport }) => REIMPORT || reimport) &&
+  url.startsWith('file:') &&
+  !url.startsWith(OWN) &&
+  !url.includes('/node_modules/');
 (globalThis as Record<symbol, unknown>)[MOCKED] = mocked;
 const isIdentifier = (name: string) => /^[A-Za-z_$][\w$]*$/.test(name);
 registerHooks({
@@ -71,8 +79,8 @@ export const urlOf = (specifier: string) => resolveFrom(specifier, callerSite().
 export const actualOf = async (url: string) => mocked.get(url)?.actual ?? ((await import(url)) as Record<string, unknown>);
 
 /** Mocks a module: its exports, and the ones of the module itself. */
-export const setMock = (url: string, exports: Record<string, unknown>, actual: Record<string, unknown>) => {
-  mocked.set(url, { exports, actual, generation: ++generation });
+export const setMock = (url: string, exports: Record<string, unknown>, actual: Record<string, unknown>, reimport = false) => {
+  mocked.set(url, { exports, actual, generation: ++generation, reimport });
 };
 
 /** The module itself again, of one or of every module mocked. */

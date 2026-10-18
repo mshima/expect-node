@@ -65,6 +65,11 @@ export type Config = {
    * bin): without it, the modules imported before a mock keep the module itself.
    */
   reimport?: boolean;
+  /**
+   * A test or a suite declared only (`.only`, `{ only: true }`) fails, like mocha --forbid-only (the `--forbid-only` of
+   * the bin): a `.only` left behind fails the run in CI, where node:test runs every test but with --test-only.
+   */
+  forbidOnly?: boolean;
   /** The coverage of a run with --coverage: the files it is measured on, and its minimum in percents. */
   coverage?: { include?: string[]; exclude?: string[]; lines?: number; branches?: number; functions?: number };
 };

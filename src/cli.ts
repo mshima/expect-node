@@ -27,6 +27,7 @@ const { values, positionals } = parseArgs({
     updateSnapshot: { type: 'boolean' },
     reporter: { type: 'string', multiple: true },
     workers: { type: 'string' },
+    'forbid-only': { type: 'boolean' },
   },
   allowPositionals: true,
 });
@@ -58,6 +59,7 @@ Object.assign(process.env, {
   // The timeouts of mocha start from the one of the configuration (see mocha.ts).
   ...(compatibility === 'mocha' && config.timeout !== undefined ? { [ENV.timeout]: String(config.timeout) } : {}),
   ...(config.reimport ? { [ENV.reimport]: 'true' } : {}),
+  ...(values['forbid-only'] || config.forbidOnly ? { [ENV.forbidOnly]: 'true' } : {}),
   ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
   ...workersPool?.env,
 });
