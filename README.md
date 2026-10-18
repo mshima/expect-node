@@ -134,8 +134,10 @@ or `new`, or `none`).
 
 ## The bin
 
-`exnode [--coverage] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
+`exnode [--coverage] [--forbid-only] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files...]` runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own. A failed test fails the run; with `--coverage`, a coverage under its minimum too.
+`--forbid-only` (or `forbidOnly: true`) fails a test or a suite declared only (`.only`, `{ only: true }`), at its site,
+like mocha: a `.only` left behind fails the run in CI.
 
 The configuration is an `expect-node.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
 
