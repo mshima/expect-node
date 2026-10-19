@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/mshima/expect-node/compare/expect-node-v0.3.0...expect-node-v0.3.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* a snapshot that does not match fails its test; the snapshots of the test file running, a shared module's test too ([#22](https://github.com/mshima/expect-node/issues/22)) ([37c7587](https://github.com/mshima/expect-node/commit/37c758744275782924eacac7de5196fc4f4eb7b5))
+
 ## [0.3.0](https://github.com/mshima/expect-node/compare/expect-node-v0.2.1...expect-node-v0.3.0) (2026-10-18)
 
 
