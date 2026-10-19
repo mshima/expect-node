@@ -68,7 +68,18 @@ export const snapshotFileOf = (testPath: string): SnapshotFile | undefined => {
 
 /** The test the snapshot matchers are of (snapshotState, currentTestName, testPath of the state of expect), or none. */
 export const setSnapshotTest = (test?: { file: SnapshotFile; name: string; testPath: string }) =>
-  jestExpect.setState({ snapshotState: test?.file.state, currentTestName: test?.name, testPath: test?.testPath } as never);
+  jestExpect.setState({
+    snapshotState: test?.file.state,
+    currentTestName: test?.name,
+    testPath: test?.testPath,
+    suppressedErrors: [],
+  } as never);
+
+/**
+ * The snapshots of a test that do not match: jest-snapshot gives their errors to expect (`suppressedErrors`) instead of
+ * throwing them, for the runner of Jest to fail the test with them once it ran.
+ */
+export const snapshotErrors = (): Error[] => (jestExpect.getState() as { suppressedErrors: Error[] }).suppressedErrors;
 
 // At the end of the test file: the snapshots of its tests not run removed (an update of all of them, none failed), saved.
 nodeTest.after(() => {

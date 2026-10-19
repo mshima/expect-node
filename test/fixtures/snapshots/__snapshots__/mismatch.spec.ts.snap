@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`fails on snapshots that do not match 1`] = `
+{
+  "value": 1,
+}
+`;
+
+exports[`fails on snapshots that do not match 2`] = `"thrown"`;
+
+exports[`fails on a snapshot that does not match 1`] = `"two"`;

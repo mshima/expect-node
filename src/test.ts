@@ -6,7 +6,7 @@ import { callAt, callerSite, type Site } from './caller.ts';
 import { checkTimeout, COMPATIBILITY, DEFAULT_TIMEOUT, type Format } from './compatibility.ts';
 import { ENV } from './env.ts';
 import { MOCHA, type MochaThis, mochaThis, timed } from './mocha.ts';
-import { setSnapshotTest, snapshotFileOf } from './snapshots.ts';
+import { setSnapshotTest, snapshotErrors, snapshotFileOf } from './snapshots.ts';
 
 /**
  * A suite: the titles of it and of its parents, for the names of its tests; the timeout of its tests (of Vitest, and of
@@ -22,6 +22,12 @@ const skippedOf = (of: Suite | undefined): boolean => Boolean(of && (of.skipped 
 const FORBID_ONLY = process.env[ENV.forbidOnly] === 'true';
 /** The next test skipped by a beforeEach, by the `this` of mocha. */
 let skipNext = false;
+
+/**
+ * The test file the process runs, the one of its snapshots, like mocha: its module, else the test file a worker runs
+ * (see worker.ts).
+ */
+export const running: { file?: string } = { file: process.env[ENV.worker] === undefined ? process.argv[1] : undefined };
 
 /** What a test gets: skip ends it skipped, like the context of Vitest. */
 export type TestContext = { skip: (message?: string) => never };
@@ -109,6 +115,13 @@ const withContext =
             await callTest(fn, mochaThis(context.skip, timeout), context);
           })
         : callTest(fn, undefined, context));
+      // The snapshots that do not match fail the test once it ran, as the runner of Jest does.
+      // Without jest-snapshot, which its tests have.
+      /* node:coverage ignore next */
+      const errors = file ? snapshotErrors() : [];
+      if (errors.length > 0) {
+        throw errors.length === 1 ? errors[0] : new AggregateError(errors, `${errors.length} snapshots do not match`);
+      }
     } catch (error) {
       if (error === SKIPPED) {
         file?.skipped.add(name);
@@ -198,13 +211,17 @@ export const it = declaring('test', (title, options, fn) => {
   const site = callerSite();
   const name = [...suite.titles, title].join(' ');
   // A test skipped keeps its snapshots.
-  if (options.skip) snapshotFileOf(site.file)?.skipped.add(name);
+  // The snapshots of the test file running, not of the module declaring the test (a helper of several test files).
+  // Without a module of the test file (a REPL, node -e), the module declaring the test.
+  /* node:coverage ignore next */
+  const testPath = running.file ?? site.file;
+  if (options.skip) snapshotFileOf(testPath)?.skipped.add(name);
   // A test of mocha within its own timeout (see timed of mocha.ts); else its own, of its suite or of the configuration.
   const timeout = MOCHA ? Infinity : (options.timeout ?? timeoutOf(suite) ?? DEFAULT_TIMEOUT);
   return callAt(site, nodeTest.it, [
     title,
     timeout === undefined ? options : { ...options, timeout },
-    fn && withContext(fn, name, site.file, suite),
+    fn && withContext(fn, name, testPath, suite),
   ]);
 });
 /** The `test` of Jest and Vitest. */

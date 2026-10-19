@@ -130,9 +130,11 @@ With `jest-snapshot` installed, an optional peer dependency (`npm install --save
 `toMatchInlineSnapshot`, `toThrowErrorMatchingSnapshot`, `toThrowErrorMatchingInlineSnapshot` and
 `expect.addSnapshotSerializer`, the snapshot files of Jest and esmocha read and written as they are: in
 `__snapshots__/<test file>.snap`, named by the titles of the suites and of the test joined by spaces, in the format of
-Jest 29 and later. The new snapshots are written, but in CI (`CI` set); `--update-snapshot` of the bin writes every
-one again, and removes the ones of the tests no longer there when no test of the file failed (`UPDATE_SNAPSHOT=all`,
-or `new`, or `none`).
+Jest 29 and later. The test file is the one running, like Jest and mocha: a test a shared module declares for the test
+files calling it has its snapshots in theirs. A snapshot that does not match fails its test once it ran, with every
+snapshot of it that does not match, like Jest. The new snapshots are written, but in CI (`CI` set); `--update-snapshot`
+of the bin writes every one again, and removes the ones of the tests no longer there when no test of the file failed
+(`UPDATE_SNAPSHOT=all`, or `new`, or `none`).
 
 ## The bin
 
