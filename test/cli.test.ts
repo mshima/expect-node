@@ -13,7 +13,11 @@ const project = join(import.meta.dirname, 'fixtures/project');
 /** The run of the bin in a folder of the fixtures: its output, and its exit code. */
 const runIn = async (folder: string, ...args: string[]) => {
   try {
-    const { stdout } = await promisify(execFile)(process.execPath, [cli, ...args], { cwd: join(import.meta.dirname, 'fixtures', folder) });
+    const { stdout } = await promisify(execFile)(process.execPath, [cli, ...args], {
+      cwd: join(import.meta.dirname, 'fixtures', folder),
+      // No snapshot written but by --update-snapshot.
+      env: { ...process.env, CI: 'true' },
+    });
     return { code: 0, stdout };
   } catch (error) {
     const { code, stdout } = error as { code: number; stdout: string };
@@ -145,6 +149,22 @@ describe('the expect-node bin', () => {
     expect(stdout).toContain('has the environment of the setup');
     expect(stdout).not.toContain('fails');
     expect((await runIn('defaults', '.')).stdout).toContain('runs by the default patterns');
+  });
+
+  it('fails a test on its snapshots that do not match, all of them, once it ran', async () => {
+    const { code, stdout } = await runIn('snapshots', '--config', 'mismatch.config.ts');
+    expect(code).toBe(1);
+    expect(stdout).toContain('2 snapshots do not match');
+    expect(stdout).toContain('-   "value": 1,');
+    expect(stdout).toContain('Received: "another"');
+    // A snapshot alone, its error.
+    expect(stdout).toMatch(/✖ fails on a snapshot that does not match \([\d.]+ms\)\n {2}Error: expect\(received\)\.toMatchSnapshot\(\)/);
+  });
+
+  it('keeps the snapshots of the test file running, a test of a shared module too, with and without workers', async () => {
+    for (const args of [[], ['--workers', '1']]) {
+      expect(await runIn('snapshots', ...args)).toMatchObject({ code: 0, stdout: expect.stringContaining('ℹ pass 1\n') });
+    }
   });
 
   it('runs by workers the test files of the default patterns', async () => {

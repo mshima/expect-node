@@ -10,7 +10,7 @@ import * as nodeTest from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { exnode } from './exnode.ts';
-import { rootHooks } from './test.ts';
+import { rootHooks, running } from './test.ts';
 
 /**
  * A test file, in a suite of its own (its relative path): the root hooks of the setup files and its tests, then the
@@ -20,6 +20,7 @@ const testFile = (file: string) =>
   nodeTest.describe(relative(process.cwd(), file), async () => {
     for (const declare of rootHooks.deferred) declare();
     rootHooks.open = true;
+    running.file = file;
     try {
       await import(pathToFileURL(file).href);
     } finally {
