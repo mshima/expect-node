@@ -58,8 +58,8 @@ with mocha. The reporters, the summary and the coverage stay the ones of node:te
 With `durations: true` in the configuration (or the path of another file), the longest test files run first, by their
 durations in `.expect-node.durations.json`, a file of the project kept by git like the snapshots: a long test file
 starting last would end the run alone. So do the workers, and the processes of the test files without them, which
-node:test starts in the order it is given. A test file of no duration, new, runs first. A run writes the file when it
-is not there, and only reads it else: the order is the same in every run, in CI too, and a run leaves git clean;
+node:test starts in the order it is given. A test file of no duration, new, runs first. A run of the whole suite writes
+the file when it is not there, and only reads it else, a run of test files given only ordering them by it: the order is the same in every run, in CI too, and a run leaves git clean;
 removed, the next run writes it again. A duration of a run of workers counts the import of the modules of its test file,
 which a process of its own does too, but not its start.
 

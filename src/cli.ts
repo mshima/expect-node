@@ -58,8 +58,9 @@ const workersPool = workers && !values.watch ? pool(files, config.files, workers
  */
 const ordered = durations === undefined ? files : longestFirst(files ?? globFiles(config.files), durations);
 const testFiles = ordered ? { files: ordered } : { globPatterns: config.files };
-// The durations written by a run when their file is not there, only read else (see durations.ts); a run watched never ends.
-const writeDurations = durations !== undefined && !values.watch && !existsSync(resolve(durations));
+// The durations written by a run of the whole suite when their file is not there, only read else (see durations.ts):
+// not of test files given, the others then of no duration; nor watched, a run that never ends.
+const writeDurations = durations !== undefined && files === undefined && !values.watch && !existsSync(resolve(durations));
 /** The compatibility of the tests (see compatibility.ts), `mocha: true` the one of mocha. */
 const compatibility = config.compatibility ?? (config.mocha ? 'mocha' : 'node');
 /** The setup files and the modules of mocha hooks, by the test processes only (see setup.ts). */
