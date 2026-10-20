@@ -55,6 +55,14 @@ large code. A test file starts after the previous one ended, its module mocks an
 hooks of the setup files are of each test file; what else it changes in a module or a global stays for the next one, as
 with mocha. The reporters, the summary and the coverage stay the ones of node:test.
 
+With `durations: true` in the configuration (or the path of another file), the longest test files run first, by their
+durations in `.expect-node.durations.json`, a file of the project kept by git like the snapshots: a long test file
+starting last would end the run alone. So do the workers, and the processes of the test files without them, which
+node:test starts in the order it is given. A test file of no duration, new, runs first. A run writes the file when it
+is not there, and only reads it else: the order is the same in every run, in CI too, and a run leaves git clean;
+removed, the next run writes it again. A duration of a run of workers counts the import of the modules of its test file,
+which a process of its own does too, but not its start.
+
 node:test has no such pool: `node --test` runs a test file by a process of its own (`--test-isolation=process`, its
 default, `--test-concurrency` of them at once), or all of them in one process (`--test-isolation=none`), and has no
 isolation by threads.
@@ -69,7 +77,7 @@ The workers are made of what node:test has: node:test runs them as ordinary test
 each its first test file, then the next ones of a queue the bin serves by a socket, each in a suite of its own once the
 previous one ended. So the reporters, the summary and the merge of the coverage stay node's.
 
-On generator-jhipster (312 test files, about 15,000 tests), the full suite ran in 66s by esmocha, 99s by a process per
+On a suite of 312 test files and about 15,000 tests of a large code, the run took 66s by esmocha, 99s by a process per
 test file, and 65s by `workers: 8`.
 
 ## Why node:test, and the module mocks by in-thread hooks

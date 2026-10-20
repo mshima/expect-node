@@ -10,18 +10,20 @@ import { describe, expect, it } from '../src/index.ts';
 
 const cli = join(import.meta.dirname, '../src/cli.ts');
 const project = join(import.meta.dirname, 'fixtures/project');
+/** The durations of the test files of the fixture pool (see durations.ts). */
+const durations = join(import.meta.dirname, 'fixtures/pool/.expect-node.durations.json');
 /** The run of the bin in a folder of the fixtures: its output, and its exit code. */
 const runIn = async (folder: string, ...args: string[]) => {
   try {
-    const { stdout } = await promisify(execFile)(process.execPath, [cli, ...args], {
+    const { stdout, stderr } = await promisify(execFile)(process.execPath, [cli, ...args], {
       cwd: join(import.meta.dirname, 'fixtures', folder),
       // No snapshot written but by --update-snapshot.
       env: { ...process.env, CI: 'true' },
     });
-    return { code: 0, stdout };
+    return { code: 0, stdout, stderr };
   } catch (error) {
-    const { code, stdout } = error as { code: number; stdout: string };
-    return { code, stdout };
+    const { code, stdout, stderr } = error as { code: number; stdout: string; stderr: string };
+    return { code, stdout, stderr };
   }
 };
 /** The run of the bin in the project. */
@@ -77,9 +79,13 @@ describe('the expect-node bin', () => {
   it('runs the test files by workers, each one file after the other, the hooks of the setup files and the mocks of each', async () => {
     // One worker, the test files given in order: the hooks of the setup file and of the mocha hooks once per test file,
     // the mock of the first not of the second, the setup file not imported by a worker thread.
+    await rm(durations, { force: true });
     const one = await runIn('pool', '--workers', '1', 'a.check.ts', 'b.check.ts', 'empty.check.ts');
     expect(one.code).toBe(0);
     expect(one.stdout.match(/setups: \d/g)).toEqual(['setups: 2', 'setups: 4']);
+    // The durations written, their file not there, by path.
+    const written = JSON.parse(await readFile(durations, 'utf8')) as { files: Record<string, number> };
+    expect(Object.keys(written.files)).toEqual(['a.check.ts', 'b.check.ts', 'empty.check.ts']);
     expect(one.stdout).toContain('ℹ pass 5\n');
     // As many workers as the cores, the test files of the configuration.
     const all = await runIn('pool');
@@ -164,6 +170,38 @@ describe('the expect-node bin', () => {
   it('keeps the snapshots of the test file running, a test of a shared module too, with and without workers', async () => {
     for (const args of [[], ['--workers', '1']]) {
       expect(await runIn('snapshots', ...args)).toMatchObject({ code: 0, stdout: expect.stringContaining('ℹ pass 1\n') });
+    }
+  });
+
+  it('runs by workers the test files of no duration first, then the longest first, their file only read', async () => {
+    const given = `${JSON.stringify({ files: { 'b.check.ts': 1000, 'gone.check.ts': 1, 'a.check.ts': 10 } })}\n`;
+    await writeFile(durations, given);
+    try {
+      const { code, stdout } = await runIn('pool', '--workers', '1', 'a.check.ts', 'b.check.ts', 'empty.check.ts');
+      expect(code).toBe(0);
+      // empty.check.ts of no duration first, then b.check.ts the longest, then a.check.ts.
+      expect(stdout.match(/setups: \d/g)).toEqual(['setups: 4', 'setups: 6']);
+      expect(stdout.indexOf('a test file after it')).toBeLessThan(stdout.indexOf('a test file mocking'));
+      expect(await readFile(durations, 'utf8')).toBe(given);
+      // Without workers, the processes of the test files in the same order.
+      const processes = await runIn('pool', '--workers', '0', 'a.check.ts', 'b.check.ts', 'empty.check.ts');
+      expect(processes.code).toBe(0);
+      expect(processes.stdout.indexOf('a test file after it')).toBeLessThan(processes.stdout.indexOf('a test file mocking'));
+      expect(await readFile(durations, 'utf8')).toBe(given);
+    } finally {
+      await rm(durations, { force: true });
+    }
+  });
+
+  it('writes the durations of the test files of a run without workers, their file not there', async () => {
+    await rm(durations, { force: true });
+    try {
+      expect(await runIn('pool', '--workers', '0')).toMatchObject({ code: 0 });
+      const { files } = JSON.parse(await readFile(durations, 'utf8')) as { files: Record<string, number> };
+      expect(Object.keys(files)).toEqual(['a.check.ts', 'b.check.ts', 'empty.check.ts']);
+      expect(Object.values(files).every(duration => Number.isInteger(duration))).toBe(true);
+    } finally {
+      await rm(durations, { force: true });
     }
   });
 

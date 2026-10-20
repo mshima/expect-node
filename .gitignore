@@ -1,4 +1,5 @@
 node_modules
 !/test/fixtures/caller/node_modules
 !/test/fixtures/pool/node_modules
+/test/fixtures/pool/.expect-node.durations.json
 dist

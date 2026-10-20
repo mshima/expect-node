@@ -11,16 +11,20 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
 import { ownModule } from './caller.ts';
+import { longestFirst } from './durations.ts';
 import { ENV } from './env.ts';
 import { globFiles } from './files.ts';
 
 /**
  * The workers of the test files given, else of the patterns, else of the default ones: as many as given, as the cores
- * for true, never more than the test files. Gives the options of run, the environment of the workers, and what to
+ * for true, never more than the test files, the longest first by a file of their durations. Gives the options of run,
+ * the environment of the workers, and what to
  * close once it ran.
  */
-export const pool = (files: string[] | undefined, patterns: string[] | undefined, workers: number | true) => {
-  const queue = files ?? globFiles(patterns);
+export const pool = (files: string[] | undefined, patterns: string[] | undefined, workers: number | true, durations?: string) => {
+  // The longest test files first, by the durations of the project (see durations.ts).
+  const given = files ?? globFiles(patterns);
+  const queue = durations === undefined ? given : longestFirst(given, durations);
   const count = Math.min(workers === true ? availableParallelism() : workers, queue.length);
   const folder = mkdtempSync(join(tmpdir(), 'exnode-'));
   // A named pipe on Windows.
