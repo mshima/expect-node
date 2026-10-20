@@ -83,14 +83,15 @@ describe('the expect-node bin', () => {
     const one = await runIn('pool', '--workers', '1', 'a.check.ts', 'b.check.ts', 'empty.check.ts');
     expect(one.code).toBe(0);
     expect(one.stdout.match(/setups: \d/g)).toEqual(['setups: 2', 'setups: 4']);
-    // The durations written, their file not there, by path.
-    const written = JSON.parse(await readFile(durations, 'utf8')) as { files: Record<string, number> };
-    expect(Object.keys(written.files)).toEqual(['a.check.ts', 'b.check.ts', 'empty.check.ts']);
     expect(one.stdout).toContain('ℹ pass 5\n');
-    // As many workers as the cores, the test files of the configuration.
+    // The durations not written by a run of test files given, the others of no duration then.
+    await expect(readFile(durations)).rejects.toThrow('ENOENT');
+    // As many workers as the cores, the test files of the configuration: the whole suite, its durations written by path.
     const all = await runIn('pool');
     expect(all.code).toBe(0);
     expect(all.stdout).toContain('ℹ pass 5\n');
+    const written = JSON.parse(await readFile(durations, 'utf8')) as { files: Record<string, number> };
+    expect(Object.keys(written.files)).toEqual(['a.check.ts', 'b.check.ts', 'empty.check.ts']);
   });
 
   it('fails the test files on a module of mocha hooks without them', async () => {
