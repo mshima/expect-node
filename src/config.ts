@@ -36,6 +36,13 @@ export type Config = {
    * test file. The hooks of the setup files are of each test file.
    */
   workers?: number | true;
+  /**
+   * A file of the project of the durations of the test files, `true` for `.expect-node.durations.json`, which the workers
+   * run the longest first by (a test file of no duration first), so that a long one does not end a run alone. Written
+   * by a run of workers when it is not there, only read else: kept by git, the order the same in every run; removed to
+   * write it again.
+   */
+  durations?: boolean | string;
   /** Run once in the runner before the test files, which inherit its environment: a temporary folder they share. */
   setup?: () => unknown;
   /**

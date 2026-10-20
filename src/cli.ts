@@ -13,8 +13,9 @@ import { parseArgs } from 'node:util';
 import { ownModule } from './caller.ts';
 import type { Config } from './config.ts';
 import { mergeCoverageOf } from './coverage.ts';
+import { DEFAULT_DURATIONS, longestFirst, recordDurations } from './durations.ts';
 import { ENV } from './env.ts';
-import { givenFiles } from './files.ts';
+import { givenFiles, globFiles } from './files.ts';
 import { pool } from './pool.ts';
 
 // A runner, never a test file: run by a test (its own tests), node:test would take it for one of its files.
@@ -45,11 +46,20 @@ const { coverage = {} } = config;
  * default patterns of node:test.
  */
 const files = positionals.length > 0 ? givenFiles(positionals, config.files) : undefined;
-const testFiles = files ? { files } : { globPatterns: config.files };
 const workers = values.workers === undefined ? config.workers : Number(values.workers);
 // Watched, the test files run again by node:test each in a process of its own: a worker keeps the modules it imported.
 if (values.watch && workers) process.stderr.write('--watch runs each test file in a process of its own, not by the workers\n');
-const workersPool = workers && !values.watch ? pool(files, config.files, workers) : undefined;
+/** The file of the durations of the test files, the longest run first (see durations.ts). */
+const durations = config.durations === true ? DEFAULT_DURATIONS : config.durations || undefined;
+const workersPool = workers && !values.watch ? pool(files, config.files, workers, durations) : undefined;
+/**
+ * The test files of the processes of node:test without workers: the longest first by their durations, in the order
+ * given to node:test, which starts them in it.
+ */
+const ordered = durations === undefined ? files : longestFirst(files ?? globFiles(config.files), durations);
+const testFiles = ordered ? { files: ordered } : { globPatterns: config.files };
+// The durations written by a run when their file is not there, only read else (see durations.ts); a run watched never ends.
+const writeDurations = durations !== undefined && !values.watch && !existsSync(resolve(durations));
 /** The compatibility of the tests (see compatibility.ts), `mocha: true` the one of mocha. */
 const compatibility = config.compatibility ?? (config.mocha ? 'mocha' : 'node');
 /** The setup files and the modules of mocha hooks, by the test processes only (see setup.ts). */
@@ -92,6 +102,7 @@ stream.on('test:fail', () => {
 // The coverage merged by file before the reporters read it, its minimums checked on it (see coverage.ts).
 mergeCoverageOf(stream as unknown as Parameters<typeof mergeCoverageOf>[0], coverage);
 if (workersPool) stream.once('close', workersPool.close);
+if (writeDurations) recordDurations(stream, durations, workersPool !== undefined);
 // Watched until an interruption (Ctrl+C), which ends the run as an exit: its test processes closed, its coverage written.
 if (values.watch) process.once('SIGINT', () => process.exit(130));
 /**
