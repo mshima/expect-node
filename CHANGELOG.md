@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/mshima/expect-node/compare/expect-node-v0.3.1...expect-node-v0.3.2) (2026-10-20)
+
+
+### Features
+
+* the longest test files first, by a file of their durations, with and without workers ([#24](https://github.com/mshima/expect-node/issues/24)) ([6b156e7](https://github.com/mshima/expect-node/commit/6b156e7bc7d762f10b8cbbb67d47106a04d042c2))
+
 ## [0.3.1](https://github.com/mshima/expect-node/compare/expect-node-v0.3.0...expect-node-v0.3.1) (2026-10-19)
 
 
