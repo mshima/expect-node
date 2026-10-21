@@ -81,11 +81,17 @@ export const setSnapshotTest = (test?: { file: SnapshotFile; name: string; testP
  */
 export const snapshotErrors = (): Error[] => (jestExpect.getState() as { suppressedErrors: Error[] }).suppressedErrors;
 
-// At the end of the test file: the snapshots of its tests not run removed (an update of all of them, none failed), saved.
-nodeTest.after(() => {
+/**
+ * Saves the snapshots of the test files run, the ones of their tests not run removed (an update of all of them, none
+ * failed): at the end of the test file of a process, or of each test file of a worker (see worker.ts), whose root hooks
+ * run at the end of its first one.
+ */
+export const saveSnapshots = (): void => {
   for (const { state, failed, skipped } of snapshotFiles.values()) {
     for (const name of skipped) state.markSnapshotsAsCheckedForTest(name);
     if (!failed) state.removeUncheckedKeys();
     state.save();
   }
-});
+  snapshotFiles.clear();
+};
+nodeTest.after(saveSnapshots);
