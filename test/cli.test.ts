@@ -206,6 +206,26 @@ describe('the expect-node bin', () => {
     }
   });
 
+  it('writes the snapshots of every test file of a worker, a shared module declaring their tests', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-worker-snapshots-'));
+    const index = pathToFileURL(join(import.meta.dirname, '../src/index.ts')).href;
+    try {
+      await writeFile(
+        join(folder, 'shared.ts'),
+        `import { expect, it } from ${JSON.stringify(index)};\n\nexport const shared = (name: string) => it('matches', () => expect({ name }).toMatchSnapshot());\n`,
+      );
+      for (const name of ['one', 'two', 'three']) {
+        await writeFile(join(folder, `${name}.test.ts`), `import { shared } from './shared.ts';\n\nshared(${JSON.stringify(name)});\n`);
+      }
+      await promisify(execFile)(process.execPath, [cli, '--workers', '1', '--update-snapshot'], { cwd: folder });
+      for (const name of ['one', 'two', 'three']) {
+        expect(await readFile(join(folder, '__snapshots__', `${name}.test.ts.snap`), 'utf8')).toContain(`"name": "${name}"`);
+      }
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
   it('runs by workers the test files of the default patterns', async () => {
     expect((await runIn('defaults', '--workers', '2')).stdout).toContain('runs by the default patterns');
   });

@@ -1,7 +1,7 @@
 /**
  * A worker of the pool of the bin (see pool.ts), like the ones of mocha --parallel: a test process of node:test running
  * its first test file, then the ones of the queue of the bin, one after the other, each in a suite of its own and its
- * module mocks and spies cleaned up after it, like esmocha. The modules they import are imported once for all of them.
+ * module mocks and spies cleaned up and its snapshots saved after it, like esmocha. The modules they import are imported once for all of them.
  */
 import { connect } from 'node:net';
 import { relative } from 'node:path';
@@ -10,6 +10,7 @@ import * as nodeTest from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { exnode } from './exnode.ts';
+import { saveSnapshots } from './snapshots.ts';
 import { rootHooks, running } from './test.ts';
 
 /**
@@ -28,6 +29,7 @@ const testFile = (file: string) =>
       nodeTest.after(() => {
         exnode.resetModules();
         exnode.restoreAllMocks();
+        saveSnapshots();
       });
     }
   });
