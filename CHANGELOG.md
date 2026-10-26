@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/mshima/expect-node/compare/expect-node-v0.3.3...expect-node-v0.3.4) (2026-10-21)
+
+
+### Bug Fixes
+
+* the snapshots of every test file of a worker saved ([#30](https://github.com/mshima/expect-node/issues/30)) ([65d4524](https://github.com/mshima/expect-node/commit/65d4524a00a8f8956610cd2ca289b46187cc689b))
+
 ## [0.3.3](https://github.com/mshima/expect-node/compare/expect-node-v0.3.2...expect-node-v0.3.3) (2026-10-20)
 
 
