@@ -5,6 +5,8 @@
 export const ENV = {
   /** `all`, `new` or `none`, the snapshots written (see snapshots.ts): `all` by `--update-snapshot`. */
   updateSnapshot: 'UPDATE_SNAPSHOT',
+  /** `true`, the tests filtered by their names or by only (see snapshots.ts), by `--test-name-pattern` and the like. */
+  filtered: 'EXNODE_FILTERED',
   /** The compatibility of the tests (see compatibility.ts), by `compatibility`. */
   compatibility: 'EXNODE_COMPATIBILITY',
   /** The timeout of the configuration, of each test and hook but their own (see compatibility.ts), by `timeout`. */
