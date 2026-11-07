@@ -2,7 +2,8 @@
  * The inline snapshots written in the test files, without a parser of JavaScript: the call of the matcher found where
  * the stack of its call tells (the line and the column of its name, like Jest), its arguments read by a small reader of
  * the source (strings, templates, comments, regular expressions and brackets), the snapshot one replaced by a template
- * literal, or added, indented as the template it replaces, a new one as Prettier formats it. TypeScript stripped of its types by node keeps the positions of its source.
+ * literal, or added: indented as the template it replaces, a new one as Prettier formats it. TypeScript stripped of its
+ * types by node keeps the positions of its source.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +36,10 @@ const OPENING = '([{';
 const CLOSING = ')]}';
 /** The characters a regular expression can follow, where a slash is no division. */
 const BEFORE_REGEX = '(,=:[!&|?{};+-*%<>~^';
+
+/** Whether a token at an index is of the code: neither whitespace nor a comment. */
+const isCode = (source: string, index: number) =>
+  !/\s/.test(source[index]) && !(source[index] === '/' && (source[index + 1] === '/' || source[index + 1] === '*'));
 
 /** The end of the token at an index: a string, a template, a comment, a regular expression, or a character. */
 function tokenEnd(source: string, index: number, regexAllowed: boolean): number {
@@ -81,8 +86,7 @@ function closingOf(source: string, index: number, closing: string): number {
     if (OPENING.includes(char)) depth++;
     else if (CLOSING.includes(char)) depth--;
     const end = tokenEnd(source, i, previous === '' || BEFORE_REGEX.includes(previous));
-    const comment = char === '/' && (source[i + 1] === '/' || source[i + 1] === '*');
-    if (!comment && !/\s/.test(char)) previous = source[end - 1]!;
+    if (isCode(source, i)) previous = source[end - 1]!;
     i = end;
   }
   throw new Error('Unterminated call');
@@ -93,10 +97,8 @@ const tokensIn = (source: string, start: number, end: number) => {
   let span: { start: number; end: number } | undefined;
   for (let i = start; i < end;) {
     const tokenStart = i;
-    const char = source[i];
     i = tokenEnd(source, i, false);
-    const comment = char === '/' && (source[tokenStart + 1] === '/' || source[tokenStart + 1] === '*');
-    if (!comment && !/\s/.test(char)) span = { start: span?.start ?? tokenStart, end: i };
+    if (isCode(source, tokenStart)) span = { start: span?.start ?? tokenStart, end: i };
   }
   return span;
 };
@@ -109,10 +111,9 @@ const argumentsAt = (source: string, offset: number) => {
   if (!name) return undefined;
   let open = offset + name[0].length;
   for (; open < source.length && source[open] !== '(';) {
-    // Whitespace or a comment, between the name and its arguments.
-    const end = tokenEnd(source, open, false);
-    if (end === open + 1 && !/\s/.test(source[open])) return undefined;
-    open = end;
+    // Whitespace or a comment, between the name and its arguments, else no call.
+    if (isCode(source, open)) return undefined;
+    open = tokenEnd(source, open, false);
   }
   const spans: { start: number; end: number }[] = [];
   let end = open;

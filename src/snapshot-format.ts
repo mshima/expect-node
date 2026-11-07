@@ -114,33 +114,17 @@ export const naturalCompare = (a: string, b: string): number => {
   return 0;
 };
 
-const SNAPSHOT_VERSION = '1';
-const SNAPSHOT_GUIDE_LINK = 'https://jestjs.io/docs/snapshot-testing';
-const SNAPSHOT_HEADER = /^\/\/ Jest Snapshot v(.+), (.+)$/m;
-const UPGRADE =
-  'Before you upgrade snapshots, we recommend that you revert any local changes to tests or other code, to ensure ' +
-  'that you do not store invalid state.';
+const HEADER = '// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing';
 
 /** The error of a file whose header is not the one of the snapshots of Jest v1, none when it is. */
 const headerError = (contents: string) => {
-  const [, version, guideLink] = SNAPSHOT_HEADER.exec(contents) ?? [];
-  if (!version) {
-    return new Error(
-      'Outdated snapshot: No snapshot header found. Jest 19 introduced versioned snapshots to ensure all developers ' +
-        `on a project are using the same version of Jest. Please update all snapshots during this upgrade of Jest.\n\n${UPGRADE}`,
-    );
-  }
-  if (version !== SNAPSHOT_VERSION) {
-    return new Error(
-      `Outdated snapshot: The version of the snapshot file is not the one of Jest.\n\nExpected: v${SNAPSHOT_VERSION}\nReceived: v${version}\n\n${UPGRADE}`,
-    );
-  }
-  if (guideLink !== SNAPSHOT_GUIDE_LINK) {
-    return new Error(
-      `Outdated guide link: The snapshot guide link at the top of this snapshot is outdated. Please update all snapshots.\n\nExpected: ${SNAPSHOT_GUIDE_LINK}\nReceived: ${guideLink}`,
-    );
-  }
-  return undefined;
+  const [header] = contents.split('\n', 1);
+  if (header === HEADER) return undefined;
+  return new Error(
+    `Outdated snapshot: the header of the file is not the one of the snapshots of Jest v1, update all of them.\n\n` +
+      `Expected: ${HEADER}\nReceived: ${header}\n\nBefore you upgrade snapshots, we recommend that you revert any local ` +
+      'changes to tests or other code, to ensure that you do not store invalid state.',
+  );
 };
 
 /**
@@ -170,5 +154,5 @@ export const writeSnapshotFile = (data: Record<string, string>, snapshotPath: st
     .sort(naturalCompare)
     .map(key => `exports[${printBacktickString(key)}] = ${printBacktickString(normalizeNewlines(data[key]))};`);
   mkdirSync(dirname(snapshotPath), { recursive: true });
-  writeFileSync(snapshotPath, `// Jest Snapshot v${SNAPSHOT_VERSION}, ${SNAPSHOT_GUIDE_LINK}\n\n${snapshots.join('\n\n')}\n`);
+  writeFileSync(snapshotPath, `${HEADER}\n\n${snapshots.join('\n\n')}\n`);
 };

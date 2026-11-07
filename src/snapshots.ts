@@ -36,11 +36,11 @@ import { SnapshotState, type UpdateSnapshot } from './snapshot-state.ts';
 const FILTERED = process.env[ENV.filtered] === 'true';
 
 type Color = (text: string) => string;
-/** The colors of jest-snapshot, with the ones of jest-matcher-utils. */
-const colored = (format: Parameters<typeof styleText>[0]): Color =>
-  // Colored by the terminal of the run.
-  /* node:coverage ignore next */
-  EXPECTED_COLOR.level > 0 ? text => styleText(format, text, { validateStream: false }) : text => text;
+/** The colors of jest-snapshot, in a terminal of colors only, like the ones of jest-matcher-utils. */
+const colored =
+  (format: Parameters<typeof styleText>[0]): Color =>
+  text =>
+    styleText(format, text);
 const snapshotColor = colored(['magenta', 'bgYellowBright']);
 const receivedColor = colored(['cyan', 'bgWhiteBright']);
 const trailingSpaceColor = colored('bgYellow');
@@ -66,28 +66,13 @@ const MAX_DIFF_STRING_LENGTH = 20_000;
 const printExpected = (value: unknown) => EXPECTED_COLOR(minify(value));
 const printReceived = (value: unknown) => RECEIVED_COLOR(minify(value));
 
-const hintOf = ({ context: { isNot, promise }, hint, inlineSnapshot, matcherName, properties }: Config, updatable: boolean) => {
-  const options: MatcherHintOptions = { isNot, promise };
-  if (updatable) options.receivedColor = receivedColor;
-  let expected = '';
-  if (typeof properties === 'object') {
-    expected = PROPERTIES_ARG;
-    if (updatable) options.expectedColor = noColor;
-    if (typeof hint === 'string' && hint.length > 0) {
-      options.secondArgument = HINT_ARG;
-      options.secondArgumentColor = BOLD_WEIGHT;
-    } else if (typeof inlineSnapshot === 'string') {
-      options.secondArgument = SNAPSHOT_ARG;
-      options.secondArgumentColor = updatable ? snapshotColor : noColor;
-    }
-  } else if (typeof hint === 'string' && hint.length > 0) {
-    expected = HINT_ARG;
-    options.expectedColor = BOLD_WEIGHT;
-  } else if (typeof inlineSnapshot === 'string') {
-    expected = SNAPSHOT_ARG;
-    if (updatable) options.expectedColor = snapshotColor;
-  }
-  return matcherHint(matcherName, undefined, expected, options);
+/** The hint of a matcher in a message: its arguments named, the properties first. */
+const hintOf = ({ context: { isNot, promise }, hint, inlineSnapshot, matcherName, properties }: Config) => {
+  let named: string | undefined;
+  if (hint) named = HINT_ARG;
+  else if (typeof inlineSnapshot === 'string') named = SNAPSHOT_ARG;
+  if (typeof properties !== 'object') return matcherHint(matcherName, undefined, named ?? '', { isNot, promise });
+  return matcherHint(matcherName, undefined, PROPERTIES_ARG, { isNot, promise, ...(named && { secondArgument: named }) });
 };
 
 /** The name of a snapshot in a message, as in its file, its hint in bold. */
@@ -175,30 +160,29 @@ const isObject = (value: unknown): value is Record<string, unknown> => value !==
 const isAnyOrAnything = (value: unknown) =>
   isObject(value) && value.$$typeof === Symbol.for('jest.asymmetricMatcher') && ['Any', 'Anything'].includes(value.constructor.name);
 
-/** The received value with the property matchers in it, which the snapshot prints instead of their values. */
-function deepMergeArray(target: unknown[], source: unknown[]): unknown[] {
-  const merged = [...target];
-  for (const [index, element] of source.entries()) {
-    const targetElement = merged[index];
-    if (Array.isArray(targetElement) && Array.isArray(element)) merged[index] = deepMergeArray(targetElement, element);
-    else if (isObject(targetElement) && !isAnyOrAnything(element)) merged[index] = deepMerge(targetElement, element);
-    else merged[index] = element;
-  }
-  return merged;
-}
+/**
+ * The received value with the property matchers in it, which the snapshot prints instead of their values: the objects
+ * and the arrays merged by their keys, a matcher Any or Anything of an array taking the place of its object.
+ */
 function deepMerge(target: unknown, source: unknown): unknown {
-  if (isObject(target) && isObject(source)) {
-    const merged: Record<string, unknown> = { ...target };
-    for (const key of Object.keys(source)) {
-      const value = source[key];
-      if (isObject(value) && !value.$$typeof) merged[key] = deepMerge(target[key], value);
-      else if (Array.isArray(value)) merged[key] = deepMergeArray(target[key] as unknown[], value);
-      else merged[key] = value;
+  if (Array.isArray(target) && Array.isArray(source)) {
+    const merged = [...target];
+    for (const [index, value] of source.entries()) {
+      const element = merged[index];
+      const deep = (Array.isArray(element) && Array.isArray(value)) || (isObject(element) && !isAnyOrAnything(value));
+      merged[index] = deep ? deepMerge(element, value) : value;
     }
     return merged;
   }
-  if (Array.isArray(target) && Array.isArray(source)) return deepMergeArray(target, source);
-  // An array of the properties of an object, its length.
+  if (isObject(target) && isObject(source)) {
+    const merged: Record<string, unknown> = { ...target };
+    for (const [key, value] of Object.entries(source)) {
+      const deep = (isObject(value) && !value.$$typeof) || Array.isArray(value);
+      merged[key] = deep ? deepMerge(target[key], value) : value;
+    }
+    return merged;
+  }
+  // Of another type: an array of the properties of an object, its length; properties not an object.
   return target;
 }
 
@@ -226,10 +210,10 @@ const matchSnapshot = (config: Config) => {
   // The errors given to expect, the test failed with them once it ran (see test.ts).
   context.dontThrow();
   const { isNot, snapshotState, currentTestName } = context;
-  if (isNot) throw new Error(matcherErrorMessage(hintOf(config, false), NOT_SNAPSHOT_MATCHERS));
+  if (isNot) throw new Error(matcherErrorMessage(hintOf(config), NOT_SNAPSHOT_MATCHERS));
   if (!snapshotState) {
     throw new Error(
-      `${hintOf(config, false)}\n\nSnapshot state must be initialized\n\n${printWithType('Snapshot state', snapshotState, stringify)}`,
+      `${hintOf(config)}\n\nSnapshot state must be initialized\n\n${printWithType('Snapshot state', snapshotState, stringify)}`,
     );
   }
   const testName = currentTestName && hint ? `${currentTestName}: ${hint}` : currentTestName || '';
@@ -237,7 +221,7 @@ const matchSnapshot = (config: Config) => {
     if (typeof received !== 'object' || received === null) {
       throw new Error(
         matcherErrorMessage(
-          hintOf(config, false),
+          hintOf(config),
           `${RECEIVED_COLOR('received')} value must be an object when the matcher has ${EXPECTED_COLOR('properties')}`,
           printWithType('Received', received, printReceived),
         ),
@@ -251,7 +235,7 @@ const matchSnapshot = (config: Config) => {
       return {
         pass: false,
         message: () =>
-          `${hintOf(config, false)}\n\n${printSnapshotName(currentTestName, hint, count)}\n\n${printPropertiesAndReceived(properties, received as object)}`,
+          `${hintOf(config)}\n\n${printSnapshotName(currentTestName, hint, count)}\n\n${printPropertiesAndReceived(properties, received as object)}`,
       };
     }
   }
@@ -274,10 +258,10 @@ const matchSnapshot = (config: Config) => {
     message:
       expected === undefined
         ? () =>
-            `${hintOf(config, true)}\n\n${name}\n\nNew snapshot was ${BOLD_WEIGHT('not written')}. The update flag must be explicitly ` +
+            `${hintOf(config)}\n\n${name}\n\nNew snapshot was ${BOLD_WEIGHT('not written')}. The update flag must be explicitly ` +
             'passed to write a new snapshot.\n\nThis is likely because this test is run in a continuous integration (CI) environment ' +
             `in which snapshots are not written by default.\n\nReceived:${actual.includes('\n') ? '\n' : ' '}${receivedColor(actual)}`
-        : () => `${hintOf(config, true)}\n\n${name}\n\n${printSnapshotAndReceived(expected, actual, received)}`,
+        : () => `${hintOf(config)}\n\n${name}\n\n${printSnapshotAndReceived(expected, actual, received)}`,
   };
 };
 
@@ -359,7 +343,7 @@ const matchThrown = (config: Config, fromPromise: boolean) => {
       ),
     );
   }
-  if (context.isNot) throw new Error(matcherErrorMessage(hintOf(config, false), NOT_SNAPSHOT_MATCHERS));
+  if (context.isNot) throw new Error(matcherErrorMessage(hintOf(config), NOT_SNAPSHOT_MATCHERS));
   let error: unknown;
   if (fromPromise) error = received;
   else {
@@ -369,7 +353,7 @@ const matchThrown = (config: Config, fromPromise: boolean) => {
       error = thrown;
     }
   }
-  if (error === undefined) throw new Error(`${hintOf(config, false)}\n\n${DID_NOT_THROW}`);
+  if (error === undefined) throw new Error(`${hintOf(config)}\n\n${DID_NOT_THROW}`);
   let message = (error as Error).message;
   // The causes of the error, after its message.
   while (typeof error === 'object' && error !== null && 'cause' in error) {
@@ -440,14 +424,9 @@ export const snapshotFileOf = (testPath: string): SnapshotFile => {
   return file;
 };
 
-/** The test the snapshot matchers are of (snapshotState, currentTestName, testPath of the state of expect), or none. */
-export const setSnapshotTest = (test?: { file: SnapshotFile; name: string; testPath: string }) =>
-  jestExpect.setState({
-    snapshotState: test?.file.state,
-    currentTestName: test?.name,
-    testPath: test?.testPath,
-    suppressedErrors: [],
-  } as never);
+/** The test the snapshot matchers are of (snapshotState and currentTestName of the state of expect), or none. */
+export const setSnapshotTest = (test?: { file: SnapshotFile; name: string }) =>
+  jestExpect.setState({ snapshotState: test?.file.state, currentTestName: test?.name, suppressedErrors: [] } as never);
 
 /**
  * The snapshots of a test that do not match: the matchers give their errors to expect (`suppressedErrors`) instead of

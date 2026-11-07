@@ -29,12 +29,11 @@ export type SnapshotMatch = {
   error: Error;
 };
 
-export type SnapshotResult = { actual: string; count: number; expected: string | undefined; key: string; pass: boolean };
+export type SnapshotResult = { actual: string; count: number; expected: string | undefined; pass: boolean };
 
 export class SnapshotState {
-  readonly snapshotPath: string;
-  readonly snapshotFormat: OptionsReceived;
-  readonly expand = false;
+  private readonly snapshotPath: string;
+  private readonly snapshotFormat: OptionsReceived;
   private readonly update: UpdateSnapshot;
   private readonly data: Record<string, string>;
   private dirty: boolean;
@@ -87,7 +86,7 @@ export class SnapshotState {
     const persisted = isInline || existsSync(this.snapshotPath);
     // The one of the file written again as printed now, for an escaping lost by the script of the file.
     if (pass && !isInline) this.data[key] = serialized;
-    const written = { actual: '', count, expected: '', key, pass: true };
+    const written = { actual: '', count, expected: '', pass: true };
     if (this.update === 'all' && hasSnapshot) {
       if (!pass) this.add(key, serialized, match);
       return written;
@@ -101,7 +100,6 @@ export class SnapshotState {
       actual: removeExtraLineBreaks(serialized),
       count,
       expected: expected === undefined ? undefined : removeExtraLineBreaks(expected),
-      key,
       pass: false,
     };
   }

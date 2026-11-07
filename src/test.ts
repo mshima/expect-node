@@ -105,7 +105,7 @@ const withContext =
       },
     };
     const file = snapshotFileOf(testPath);
-    setSnapshotTest({ file, name, testPath });
+    setSnapshotTest({ file, name });
     try {
       if (skipNext || skippedOf(of)) {
         skipNext = false;
