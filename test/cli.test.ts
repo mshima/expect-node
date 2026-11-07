@@ -263,6 +263,62 @@ describe('the expect-node bin', () => {
     }
   });
 
+  it('names the test files whose tests a filter runs none of as node --test, never the entry of a worker', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-names-'));
+    const index = pathToFileURL(join(import.meta.dirname, '../src/index.ts')).href;
+    const exnode = async (...args: string[]) =>
+      (
+        await promisify(execFile)(process.execPath, [cli, '--test-name-pattern', 'none', ...args, 'a.test.ts', 'b.test.ts'], {
+          cwd: folder,
+        })
+      ).stdout;
+    try {
+      for (const name of ['a', 'b']) {
+        await writeFile(join(folder, `${name}.test.ts`), `import { it } from ${JSON.stringify(index)};\n\nit('one', () => {});\n`);
+      }
+      // By their relative paths, of a process each.
+      const processes = await exnode('--workers', '0');
+      expect(processes).toMatch(/^✔ a\.test\.ts \(/m);
+      expect(processes).toMatch(/^✔ b\.test\.ts \(/m);
+      // The test files of a worker, the ones that reported nothing.
+      const worker = await exnode('--workers', '1');
+      expect(worker).toMatch(/^✔ a\.test\.ts, b\.test\.ts \(/m);
+      expect(worker).not.toContain('worker-');
+      // The reporters pair the start and the end of the test of a file by its name.
+      expect(await exnode('--workers', '1', '--reporter', 'tap')).toContain('ok 1 - a.test.ts, b.test.ts');
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('runs by a filter of the names the tests of every test file of a worker, the ones of node:test itself too', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-worker-filter-'));
+    const index = pathToFileURL(join(import.meta.dirname, '../src/index.ts')).href;
+    try {
+      for (const name of ['a', 'b']) {
+        await writeFile(
+          join(folder, `${name}.test.ts`),
+          `import { describe, it } from ${JSON.stringify(index)};\n\ndescribe('suite', () => it('one ${name}', () => {}));\n`,
+        );
+      }
+      await writeFile(join(folder, 'c.test.ts'), "import { it } from 'node:test';\n\nit('one of node:test', () => {});\n");
+      await writeFile(join(folder, 'd.test.ts'), "throw new Error('the import failed');\n");
+      const exnode = (...files: string[]) =>
+        promisify(execFile)(process.execPath, [cli, '--workers', '1', '--test-name-pattern', 'one', ...files], { cwd: folder }).catch(
+          (error: unknown) => error as { stdout: string },
+        );
+      const { stdout } = await exnode('a.test.ts', 'b.test.ts', 'c.test.ts');
+      expect(stdout).toMatch(/✔ one a .*\n[^]*✔ one b .*\n[^]*✔ one of node:test /);
+      expect(stdout).toContain('ℹ pass 3');
+      // A test file that fails to import fails its suite, the next ones run.
+      const failed = await exnode('d.test.ts', 'a.test.ts');
+      expect(failed.stdout).toContain('the import failed');
+      expect(failed.stdout).toContain('✔ one a ');
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
   it('takes the options of the newer versions of node --test when the node running it takes them, else fails or ignores them', async () => {
     const takes = (name: string) => nodeRun.toString().includes(name);
     const folder = await mkdtemp(join(tmpdir(), 'expect-node-newer-'));

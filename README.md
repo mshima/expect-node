@@ -42,11 +42,12 @@ bundler or source maps between the tests and the code.
 
 Each test file runs in a process of its own, which imports again the modules of the code it tests. With `workers` in the
 configuration (`workers: true` for as many as the cores, see The bin) or `--workers <n>` (`0` for none), they run by
-that many processes reused, like mocha `--parallel`: each runs a test file after the other, in a suite named by its
-path, and imports the modules of the code once for them, which is several times faster when the test files import a
-large code. A test file starts after the previous one ended, its module mocks and its spies cleaned up after it, and the
-hooks of the setup files are of each test file; what else it changes in a module or a global stays for the next one, as
-with mocha. The reporters, the summary and the coverage stay the ones of node:test.
+that many processes reused, like mocha `--parallel`: each runs a test file after the other, in a suite named by its path
+(its tests, suites and hooks of expect-node; the ones of `node:test` itself next to it), and imports the modules of the
+code once for them, which is several times faster when the test files import a large code. A test file starts after the
+previous one ended, its module mocks and its spies cleaned up after it, and the hooks of the setup files are of each
+test file; what else it changes in a module or a global stays for the next one, as with mocha. The reporters, the
+summary and the coverage stay the ones of node:test.
 
 With `durations: true` in the configuration (or the path of another file), the longest test files run first, by their
 durations in `.expect-node.durations.json`, a file of the project kept by git like the snapshots: a long test file
