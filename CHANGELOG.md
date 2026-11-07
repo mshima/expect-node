@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/mshima/expect-node/compare/expect-node-v0.3.5...expect-node-v0.3.6) (2026-11-07)
+
+
+### Bug Fixes
+
+* the bin of the package as npm publishes it, without the warning of its path ([#34](https://github.com/mshima/expect-node/issues/34)) ([eadc7e0](https://github.com/mshima/expect-node/commit/eadc7e087b8a624abfa0457727f98dbd47e39786))
+
 ## [0.3.5](https://github.com/mshima/expect-node/compare/expect-node-v0.3.4...expect-node-v0.3.5) (2026-11-07)
 
 
