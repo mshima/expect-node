@@ -26,14 +26,6 @@ describe('a module', () => {
 npm install --save-dev expect-node
 ```
 
-The snapshot matchers need `jest-snapshot`, an optional peer dependency, installed apart:
-
-```sh
-npm install --save-dev jest-snapshot
-```
-
-Without it, everything else works, and a snapshot matcher fails its test, telling to install it (see Snapshots).
-
 ## Pure node
 
 The tests run the code as it runs in production: node strips the types of TypeScript in place, without a transform, a
@@ -43,7 +35,8 @@ bundler or source maps between the tests and the code.
   behave as when the code runs. A link error only node gives fails the test too, like a module importing a name another
   one does not export, which a transform may let through.
 - The runner, its parallelism, the timeouts and the coverage are node's: expect-node depends on `expect` and `jest-mock`
-  only, and on `jest-snapshot` for the snapshots, when installed.
+  only, and on the packages of `expect` its snapshots print and diff with (`pretty-format`, `jest-diff`,
+  `jest-matcher-utils`): no Babel, no transform.
 
 ## Workers
 
@@ -134,8 +127,7 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
 
 ## Snapshots
 
-With `jest-snapshot` installed, an optional peer dependency (`npm install --save-dev jest-snapshot`): `toMatchSnapshot`,
-`toMatchInlineSnapshot`, `toThrowErrorMatchingSnapshot`, `toThrowErrorMatchingInlineSnapshot` and
+`toMatchSnapshot`, `toMatchInlineSnapshot`, `toThrowErrorMatchingSnapshot`, `toThrowErrorMatchingInlineSnapshot` and
 `expect.addSnapshotSerializer`, the snapshot files of Jest and esmocha read and written as they are: in
 `__snapshots__/<test file>.snap`, named by the titles of the suites and of the test joined by spaces, in the format of
 Jest 29 and later. The test file is the one running, like Jest and mocha: a test a shared module declares for the test
@@ -143,6 +135,12 @@ files calling it has its snapshots in theirs. A snapshot that does not match fai
 snapshot of it that does not match, like Jest. The new snapshots are written, but in CI (`CI` set); `--update-snapshot`
 of the bin writes every one again, and removes the ones of the tests no longer there when no test of the file failed
 (`UPDATE_SNAPSHOT=all`, or `new`, or `none`).
+
+The snapshots are expect-node's own, without `jest-snapshot` and its dependencies: the files byte for byte the ones of
+Jest, the same names, serializers (the mocks too), messages and diffs. The inline snapshots are written in the test file
+where the stack of the call tells, the argument of the matcher replaced by a template literal, or added: indented as the
+template it replaces, else not, like Jest without Prettier, without a parser: node strips the types of TypeScript keeping
+the positions of the source.
 
 ## The bin
 

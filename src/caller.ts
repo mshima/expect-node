@@ -7,6 +7,9 @@ import { compileFunction } from 'node:vm';
 export const OWN = new URL('.', import.meta.url).href;
 const OWN_PATHS = [import.meta.dirname, OWN];
 
+/** Whether a script, by its path or its URL, is a module of expect-node. */
+export const isOwn = (scriptName: string) => OWN_PATHS.some(own => scriptName.startsWith(own));
+
 /** The URL of a module of expect-node by its name, of its sources or of its build as this one. */
 export const ownModule = (name: string) => new URL(`./${name}${extname(import.meta.url)}`, import.meta.url).href;
 
@@ -14,7 +17,7 @@ export const ownModule = (name: string) => new URL(`./${name}${extname(import.me
 export type Site = { url: string; file: string; line: number; column: number };
 
 export const callerSite = (): Site => {
-  const site = getCallSites().find(({ scriptName }) => scriptName && !OWN_PATHS.some(own => scriptName.startsWith(own)))!;
+  const site = getCallSites().find(({ scriptName }) => scriptName && !isOwn(scriptName))!;
   // A path instead of a URL, a CommonJS module calling.
   /* node:coverage ignore next */
   const url = site.scriptName.startsWith('file:') ? site.scriptName : pathToFileURL(site.scriptName).href;

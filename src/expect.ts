@@ -1,4 +1,5 @@
 import { expect as jestExpect } from 'expect';
+import type { Plugin } from 'pretty-format';
 
 import './snapshots.ts';
 
@@ -35,10 +36,14 @@ export const expect = Object.assign(
 );
 
 declare module 'expect' {
+  interface BaseExpect {
+    /** A serializer of the snapshots, of the values it tests, before the ones added before it. */
+    addSnapshotSerializer(serializer: Plugin): void;
+  }
   interface Matchers<R extends void | Promise<void>> {
-    /** The value against its snapshot, in `__snapshots__/<test file>.snap` (jest-snapshot, an optional peer dependency). */
+    /** The value against its snapshot, in `__snapshots__/<test file>.snap` (see snapshots.ts). */
     toMatchSnapshot(propertiesOrHint?: object | string, hint?: string): R;
-    /** The value against its snapshot written in the test (jest-snapshot, an optional peer dependency). */
+    /** The value against its snapshot written in the test (see snapshots.ts). */
     toMatchInlineSnapshot(propertiesOrSnapshot?: object | string, inlineSnapshot?: string): R;
     toThrowErrorMatchingSnapshot(hint?: string): R;
     toThrowErrorMatchingInlineSnapshot(inlineSnapshot?: string): R;
