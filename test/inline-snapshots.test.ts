@@ -62,11 +62,11 @@ describe('the inline snapshots', () => {
         [
           'expect(1).toMatchInlineSnapshot(`"one"`);',
           '  expect(2).toMatchInlineSnapshot(`',
-          '{',
-          '  "a": \\`2\\`,',
+          '    {',
+          '      "a": \\`2\\`,',
           '',
-          '}',
-          '`);',
+          '    }',
+          '  `);',
           'expect(3).toMatchInlineSnapshot(`3`);',
           "expect(4).toMatchInlineSnapshot({ a: expect.stringMatching(/a)[/]\\/b/gi), b: ')', c: `\\`${ { x: '}' }.x }` /* ) */ }, `4`,);",
           'expect(5).toMatchInlineSnapshot /* a comment */ (',
@@ -79,6 +79,59 @@ describe('the inline snapshots', () => {
           '',
           '      c"',
           '    `);',
+          '',
+        ].join('\n'),
+      );
+    });
+  });
+
+  it('formats a new snapshot as Prettier does, from the start of its call, an existing one as it is', async () => {
+    await inFolder(async folder => {
+      const file = join(folder, 'a.test.ts');
+      const source = [
+        '      expect(a)',
+        '        .not?.resolves',
+        '        .toMatchInlineSnapshot();',
+        '  const x = await expect(p).resolves.toMatchInlineSnapshot();',
+        '\t\texpect(1).toMatchInlineSnapshot();',
+        ' list[0].toMatchInlineSnapshot();',
+        'x).toMatchInlineSnapshot();',
+        '  (a].toMatchInlineSnapshot();',
+        'expect(2).toMatchInlineSnapshot(`',
+        '"a"',
+        '`);',
+        '',
+      ].join('\n');
+      await writeFile(file, source);
+      const snapshot = '\n"b"\n';
+      writeInlineSnapshots([3, 4, 5, 6, 7, 8, 9].map(line => ({ site: siteIn(file, source, line), snapshot })));
+      expect(await readFile(file, 'utf8')).toBe(
+        [
+          '      expect(a)',
+          '        .not?.resolves',
+          '        .toMatchInlineSnapshot(`',
+          '        "b"',
+          '      `);',
+          '  const x = await expect(p).resolves.toMatchInlineSnapshot(`',
+          '              "b"',
+          '            `);',
+          '\t\texpect(1).toMatchInlineSnapshot(`',
+          '\t\t\t"b"',
+          '\t\t`);',
+          ' list[0].toMatchInlineSnapshot(`',
+          '    "b"',
+          '  `);',
+          // No start found: from the name of the matcher.
+          'x).toMatchInlineSnapshot(`',
+          '      "b"',
+          '    `);',
+          '  (a].toMatchInlineSnapshot(`',
+          '        "b"',
+          '      `);',
+          // A template not indented, kept so.
+          'expect(2).toMatchInlineSnapshot(`',
+          '"b"',
+          '`);',
           '',
         ].join('\n'),
       );
@@ -181,7 +234,9 @@ describe('the inline snapshots', () => {
         };
         expect(await exnode('one', '--update-snapshot')).toBe(0);
         const written = await readFile(file, 'utf8');
-        expect(written).toContain('  expect({ value: process.env.VALUE }).toMatchInlineSnapshot(`\n{\n  "value": "one",\n}\n`);');
+        expect(written).toContain(
+          '  expect({ value: process.env.VALUE }).toMatchInlineSnapshot(`\n    {\n      "value": "one",\n    }\n  `);',
+        );
         expect(written).toContain('.rejects.toThrowErrorMatchingInlineSnapshot(`"rejected"`);');
         expect(await exnode('one')).toBe(0);
         expect(await exnode('two')).toBe(1);

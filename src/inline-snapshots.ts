@@ -2,7 +2,7 @@
  * The inline snapshots written in the test files, without a parser of JavaScript: the call of the matcher found where
  * the stack of its call tells (the line and the column of its name, like Jest), its arguments read by a small reader of
  * the source (strings, templates, comments, regular expressions and brackets), the snapshot one replaced by a template
- * literal, or added, indented as the template it replaces. TypeScript stripped of its types by node keeps the positions of its source.
+ * literal, or added, indented as the template it replaces, a new one as Prettier formats it. TypeScript stripped of its types by node keeps the positions of its source.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -126,24 +126,80 @@ const argumentsAt = (source: string, offset: number) => {
 };
 
 /**
- * A snapshot of several lines indented as the template it replaces: its lines one level (two spaces) more than the
- * closing of the template, the closing at its indentation.
+ * A snapshot of several lines indented: its lines one level more than its closing, the closing at an indentation, like
+ * jest-snapshot with Prettier.
  */
-const indent = (snapshot: string, indentation: string) => {
+const indent = (snapshot: string, indentation: string, level: string) => {
   const lines = snapshot.split('\n');
   return lines
     .map((line, index) => {
       if (index === 0) return line;
       if (index === lines.length - 1) return indentation + line;
-      return line === '' ? line : `${indentation}  ${line}`;
+      return line === '' ? line : `${indentation}${level}${line}`;
     })
     .join('\n');
 };
 
-/** The indentation of the closing of a template of several lines, the one its snapshot is written with, if any. */
-const indentationOf = (template: string) => {
+/**
+ * The indentation of the closing of a template of several lines, the style its snapshot is written with: none when
+ * it closes at the start of its line; undefined for a template of one line, of no style.
+ */
+const styleOf = (template: string) => {
+  if (!template.includes('\n')) return undefined;
   const last = template.slice(template.lastIndexOf('\n') + 1, -1);
-  return template.includes('\n') && /^[ \t]+$/.test(last) ? last : undefined;
+  return /^[ \t]+$/.test(last) ? last : '';
+};
+
+const BRACKETS: Record<string, string> = { ')': '(', ']': '[' };
+
+/** The index of the opening of a closing parenthesis or bracket, backwards, by their depth; -1 if none. */
+const openingBefore = (source: string, index: number) => {
+  let depth = 0;
+  for (let i = index; i >= 0; i--) {
+    const char = source[i];
+    if (char === ')' || char === ']') depth++;
+    else if (char === '(' || char === '[') depth--;
+    if (depth === 0) return BRACKETS[source[index]] === char ? i : -1;
+  }
+  return -1;
+};
+
+const skipWhitespaceBefore = (source: string, index: number) => {
+  let i = index;
+  while (i >= 0 && /\s/.test(source[i])) i--;
+  return i;
+};
+
+/**
+ * The start of the call of the matcher at an offset, where Prettier indents its snapshot from: the start of the
+ * expression whose member it is (`expect(value)`, `.not`, `.resolves`, of several lines too), or of its await.
+ */
+const callStartOf = (source: string, offset: number) => {
+  let start = offset;
+  for (let i = skipWhitespaceBefore(source, offset - 1); source[i] === '.'; i = skipWhitespaceBefore(source, start - 1)) {
+    i = skipWhitespaceBefore(source, source[i - 1] === '?' ? i - 2 : i - 1);
+    while (source[i] === ')' || source[i] === ']') {
+      const opening = openingBefore(source, i);
+      if (opening === -1) return offset;
+      i = skipWhitespaceBefore(source, opening - 1);
+    }
+    while (i >= 0 && /[\w$]/.test(source[i])) i--;
+    start = i + 1;
+  }
+  const lineStart = source.lastIndexOf('\n', start - 1) + 1;
+  const awaited = /await\s+$/.exec(source.slice(lineStart, start));
+  return awaited ? lineStart + awaited.index : start;
+};
+
+/**
+ * The indentation of a new snapshot by the column of its call, as Prettier does it: two spaces by level, the levels of
+ * the column; the tabs of a call indented by tabs, a level more.
+ */
+const indentationAt = (source: string, offset: number) => {
+  const start = callStartOf(source, offset);
+  const prefix = source.slice(source.lastIndexOf('\n', start - 1) + 1, start);
+  if (/^\t+$/.test(prefix)) return { indentation: prefix, level: '\t' };
+  return { indentation: '  '.repeat(Math.ceil(prefix.length / 2)), level: '  ' };
 };
 
 /** The offset of a line and a column (from 1) in a source. */
@@ -171,10 +227,12 @@ export const writeInlineSnapshots = (snapshots: InlineSnapshot[]) => {
       const call = argumentsAt(source, offset);
       if (!call) throw new Error(`Couldn't locate the inline snapshot of ${file}:${site.line}:${site.column}.`);
       const literal = call.spans.find(({ start, end }) => '`"\''.includes(source[start]) && tokenEnd(source, start, false) === end);
-      // Indented as the template it replaces, else not, like jest-snapshot without Prettier: the snapshots of Jest,
-      // esmocha and Vitest written as they are.
-      const indentation = literal && indentationOf(source.slice(literal.start, literal.end));
-      const template = `\`${escapeBacktickString(indentation ? indent(snapshot, indentation) : snapshot)}\``;
+      // Indented as the template of several lines it replaces, indented or not: the snapshots of Jest, esmocha and
+      // Vitest written as they are. A new one, formatted as Prettier does it.
+      const style = literal && styleOf(source.slice(literal.start, literal.end));
+      const { indentation, level } = style === undefined ? indentationAt(source, offset) : { indentation: style, level: '  ' };
+      const formatted = style === '' ? snapshot : indent(snapshot, indentation, level);
+      const template = `\`${escapeBacktickString(formatted)}\``;
       if (literal) edits.set(offset, { ...literal, text: template, snapshot });
       else {
         const last = call.spans.at(-1);

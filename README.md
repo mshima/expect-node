@@ -138,9 +138,10 @@ of the bin writes every one again, and removes the ones of the tests no longer t
 
 The snapshots are expect-node's own, without `jest-snapshot` and its dependencies: the files byte for byte the ones of
 Jest, the same names, serializers (the mocks too), messages and diffs. The inline snapshots are written in the test file
-where the stack of the call tells, the argument of the matcher replaced by a template literal, or added: indented as the
-template it replaces, else not, like Jest without Prettier, without a parser: node strips the types of TypeScript keeping
-the positions of the source.
+where the stack of the call tells, the argument of the matcher replaced by a template literal, or added: a template of
+several lines indented as it is, or not; a new one formatted as Prettier does it in Jest, its lines a level below the
+start of its call. Without a parser or Prettier: node strips the types of TypeScript keeping the positions of the
+source.
 
 ## The bin
 
