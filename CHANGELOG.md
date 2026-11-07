@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/mshima/expect-node/compare/expect-node-v0.4.0...expect-node-v0.4.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* the tests of every test file of a worker run by a filter of the names, the test files named in the report ([#38](https://github.com/mshima/expect-node/issues/38)) ([7d9914e](https://github.com/mshima/expect-node/commit/7d9914eded952016463351ba8218b39536e210a3))
+
 ## [0.4.0](https://github.com/mshima/expect-node/compare/expect-node-v0.3.6...expect-node-v0.4.0) (2026-11-07)
 
 
