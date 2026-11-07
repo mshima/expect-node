@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/mshima/expect-node/compare/expect-node-v0.3.6...expect-node-v0.4.0) (2026-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* the snapshots of expect-node, without jest-snapshot ([#36](https://github.com/mshima/expect-node/issues/36))
+
+### Features
+
+* the snapshots of expect-node, without jest-snapshot ([#36](https://github.com/mshima/expect-node/issues/36)) ([0ff099c](https://github.com/mshima/expect-node/commit/0ff099c47f55792203c0be67d654c59dda11937e))
+
 ## [0.3.6](https://github.com/mshima/expect-node/compare/expect-node-v0.3.5...expect-node-v0.3.6) (2026-11-07)
 
 
