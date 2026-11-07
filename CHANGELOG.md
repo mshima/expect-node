@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/mshima/expect-node/compare/expect-node-v0.3.4...expect-node-v0.3.5) (2026-11-07)
+
+
+### Features
+
+* the options of the runner of node --test, the snapshots of a filter of the tests run kept ([#32](https://github.com/mshima/expect-node/issues/32)) ([0606422](https://github.com/mshima/expect-node/commit/06064227a2f2d72c4aef5d679f8a1e61af14e1e2))
+
 ## [0.3.4](https://github.com/mshima/expect-node/compare/expect-node-v0.3.3...expect-node-v0.3.4) (2026-10-21)
 
 
