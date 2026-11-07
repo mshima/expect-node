@@ -146,7 +146,7 @@ of the bin writes every one again, and removes the ones of the tests no longer t
 
 ## The bin
 
-`exnode [--coverage] [--watch] [--forbid-only] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [files or directories...]` runs the test files of the configuration, or the ones given, in
+`exnode [--coverage] [--watch] [--forbid-only] [--update-snapshot] [--reporter <name>[:<file>]]... [--config <file>] [the options of node --test] [files or directories...]` (`exnode --help` lists them) runs the test files of the configuration, or the ones given, in
 parallel, each in a process of its own; a directory given is its test files, the ones of the patterns of the
 configuration in it, else of the default patterns of node:test, like mocha. A failed test fails the run; with
 `--coverage`, a coverage under its minimum too.
@@ -154,6 +154,37 @@ configuration in it, else of the default patterns of node:test, like mocha. A fa
 process of its own, not by the workers, a worker keeping the modules it imported.
 `--forbid-only` (or `forbidOnly: true`) fails a test or a suite declared only (`.only`, `{ only: true }`), at its site,
 like mocha: a `.only` left behind fails the run in CI.
+
+### The options of `node --test`
+
+The bin takes the options of the runner of `node --test` that apply to it, of the same names and meaning, over the
+configuration, its own ones kept beside them:
+
+| Option of `node --test`                                                                                                                                                | What it does in the bin                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--test-name-pattern=<regex>`, `--test-skip-pattern=<regex>` (each repeated)                                                                                           | runs the tests whose names match, or the others; the snapshots of the tests not run kept as they are, never removed, with and without workers                 |
+| `--test-only`                                                                                                                                                          | runs the tests declared only, their snapshots updated alone like a filter; `--forbid-only` fails them instead                                                 |
+| `--test-concurrency=<n>`                                                                                                                                               | the test files run at once without workers (`concurrency`); with workers, `--workers`                                                                         |
+| `--test-timeout=<ms>`                                                                                                                                                  | the timeout of each test and hook but their own (`timeout`)                                                                                                   |
+| `--test-reporter=<name>`, `--test-reporter-destination=<file>` (each repeated)                                                                                         | the reporters, each to the destination of the same order (a file, `stdout` or `stderr`; the terminal when none); `--reporter <name>[:<destination>]` the same |
+| `--test-shard=<index>/<total>`                                                                                                                                         | a share of the test files, of the index of them sorted modulo the total, with and without workers                                                             |
+| `--experimental-test-coverage`, `--test-coverage-include`, `--test-coverage-exclude`, `--test-coverage-lines`, `--test-coverage-branches`, `--test-coverage-functions` | the coverage, `--coverage` the same, and its files and minimums (`coverage`)                                                                                  |
+| `--test-update-snapshots`                                                                                                                                              | `--update-snapshot`                                                                                                                                           |
+| `--test-force-exit`                                                                                                                                                    | the process ended once the tests ran                                                                                                                          |
+| `--watch`                                                                                                                                                              | the test files run again when they change                                                                                                                     |
+
+The options of the newer versions of `node --test`, given to it when the node running the bin takes them. Else the run
+fails, telling it, when ignoring the option would change what runs, is measured or written (`--test-global-setup`,
+`--experimental-test-tag-filter`, `--test-coverage-include-all`); the others are ignored, the run telling it (an order,
+the failed tests alone, all of them run instead). The options: `--test-global-setup=<file>` (its `globalSetup` and `globalTeardown`), `--test-randomize` and
+`--test-random-seed=<n>` (the tests in a random order), `--test-rerun-failures=<file>` (the tests failed in the
+previous run alone, their snapshots kept like a filter's), `--test-coverage-include-all` and
+`--experimental-test-tag-filter=<expression>` (the tests of the `tags` of their options matching, like a filter).
+
+Left out: `--test-isolation` (and `--experimental-test-isolation`), the workers instead, `none` importing every test
+file before running any, which the mocks and the hooks of each test file need; `--experimental-test-module-mocks`,
+`exnode.mock` instead, without the coverage of zero of the module mocked; `--watch-path`, `--watch-preserve-output`
+and `--watch-kill-signal`, of the watch of the `node` command, not of the runner.
 
 The configuration is an `expect-node.config.ts` (or `.mts`, `.js`, `.mjs`) of the cwd:
 

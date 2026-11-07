@@ -1,7 +1,9 @@
 import { execFile, spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { run as nodeRun } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
@@ -221,6 +223,143 @@ describe('the expect-node bin', () => {
       for (const name of ['one', 'two', 'three']) {
         expect(await readFile(join(folder, '__snapshots__', `${name}.test.ts.snap`), 'utf8')).toContain(`"name": "${name}"`);
       }
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('updates by a filter of the names the snapshots of the tests run only, with and without workers', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-filters-'));
+    const index = pathToFileURL(join(import.meta.dirname, '../src/index.ts')).href;
+    const snapshots = () => readFile(join(folder, '__snapshots__', 'a.test.ts.snap'), 'utf8');
+    const exnode = async (...args: string[]) => {
+      await promisify(execFile)(process.execPath, [cli, ...args], { cwd: folder, env: { ...process.env, VALUE: args.join(' ') } });
+      return snapshots();
+    };
+    try {
+      await writeFile(
+        join(folder, 'a.test.ts'),
+        [
+          `import { describe, expect, it } from ${JSON.stringify(index)};`,
+          `describe('group a', () => it('one', () => expect({ one: process.env.VALUE }).toMatchSnapshot()));`,
+          `describe('group b', () => it.only('two', () => expect({ two: process.env.VALUE }).toMatchSnapshot()));`,
+          '',
+        ].join('\n'),
+      );
+      for (const workers of ['0', '1']) {
+        await exnode('--workers', workers, '--update-snapshot');
+        const named = await exnode('--workers', workers, '--update-snapshot', '--test-name-pattern', 'group a');
+        expect(named).toContain(`"one": "--workers ${workers} --update-snapshot --test-name-pattern group a"`);
+        expect(named).toContain(`"two": "--workers ${workers} --update-snapshot"`);
+        const skipped = await exnode('--workers', workers, '--test-update-snapshots', '--test-skip-pattern', 'group a');
+        expect(skipped).toContain(`"one": "--workers ${workers} --update-snapshot --test-name-pattern group a"`);
+        expect(skipped).toContain(`"two": "--workers ${workers} --test-update-snapshots --test-skip-pattern group a"`);
+        const only = await exnode('--workers', workers, '--update-snapshot', '--test-only');
+        expect(only).toContain(`"one": "--workers ${workers} --update-snapshot --test-name-pattern group a"`);
+        expect(only).toContain(`"two": "--workers ${workers} --update-snapshot --test-only"`);
+      }
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('takes the options of the newer versions of node --test when the node running it takes them, else fails or ignores them', async () => {
+    const takes = (name: string) => nodeRun.toString().includes(name);
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-newer-'));
+    try {
+      const runs = {
+        globalSetupPath: () => run('plain.check.ts', '--test-global-setup', 'global-setup.mjs'),
+        randomSeed: () => run('plain.check.ts', '--test-random-seed', '3'),
+        randomize: () => run('plain.check.ts', '--test-randomize'),
+        rerunFailuresFilePath: () => run('failing.ts', '--test-rerun-failures', join(folder, 'rerun.json')),
+        coverageIncludeAll: () => runIn('defaults', '--coverage', '--test-coverage-include-all'),
+        testTagFilters: () => runIn('tags', '--experimental-test-tag-filter', 'fast'),
+      };
+      for (const [name, of] of Object.entries(runs)) {
+        const { code, stdout, stderr } = await of();
+        if (!takes(name) && ['globalSetupPath', 'coverageIncludeAll', 'testTagFilters'].includes(name)) {
+          // Failing the run: ignored, it would change what runs, is measured or written.
+          expect({ name, code }).toEqual({ name, code: 1 });
+          expect(stderr).toContain('needs a newer node: node:test of node');
+        } else if (!takes(name)) {
+          // Ignored, the run telling it: its tests run (the failing one failing).
+          expect({ name, code }).toEqual({ name, code: name === 'rerunFailuresFilePath' ? 1 : 0 });
+          expect(stderr).toContain('ignored: node:test of node');
+        } else if (name === 'globalSetupPath') {
+          expect(stdout).toContain('the global setup ran');
+        } else if (name === 'randomSeed') {
+          expect(stdout).toContain('Randomized test order seed: 3');
+        } else if (name === 'rerunFailuresFilePath') {
+          expect(existsSync(join(folder, 'rerun.json'))).toBe(true);
+        } else if (name === 'testTagFilters') {
+          expect(stdout).toMatch(/ℹ tests 1\n/);
+          expect(stdout).toContain('is fast');
+        } else {
+          expect({ name, stderr }).toEqual({ name, stderr: expect.not.stringMatching(/ignored: node:test of node|needs a newer node/) });
+        }
+      }
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('tells its options by --help', async () => {
+    for (const option of ['--help', '-h']) {
+      const { code, stdout } = await run(option);
+      expect(code).toBe(0);
+      expect(stdout).toContain('Usage: exnode [options] [files or directories...]');
+      expect(stdout).toContain('--test-name-pattern <regex>');
+    }
+  });
+
+  it('takes the options of the runner of node --test', async () => {
+    // A share of the test files, sorted: the first of plain.check.ts and sum.check.ts, then the second.
+    const first = await run('--test-shard', '1/2');
+    expect(first.stdout).toContain('✔ sums');
+    expect(first.stdout).not.toContain('has the environment of the setup');
+    expect((await run('--test-shard', '2/2')).stdout).toContain('has the environment of the setup');
+    // The timeout of each test over the one of the configuration (100ms, a test of 150ms).
+    expect(await runIn('timeouts', '--test-timeout', '1000')).toMatchObject({ code: 0, stdout: expect.stringContaining('ℹ pass 4\n') });
+    // The coverage and its minimums over the ones of the configuration.
+    const coverage = await run(
+      '--experimental-test-coverage',
+      '--test-coverage-include',
+      '*.ts',
+      '--test-coverage-exclude',
+      '*.check.ts',
+      '--test-coverage-lines',
+      '0',
+      '--test-coverage-branches',
+      '0',
+      '--test-coverage-functions',
+      '0',
+      '--test-concurrency',
+      '1',
+      '--test-force-exit',
+    );
+    expect(coverage).toMatchObject({ code: 0, stdout: expect.stringContaining('start of coverage report') });
+    // The reporters, each of the destination of the same order: a file, the terminal.
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-reporters-'));
+    try {
+      const report = join(folder, 'report.xml');
+      const reported = await run(
+        'plain.check.ts',
+        '--test-reporter',
+        'tap',
+        '--test-reporter-destination',
+        'stdout',
+        '--test-reporter',
+        'junit',
+        '--test-reporter-destination',
+        report,
+        '--test-reporter',
+        'dot',
+        '--test-reporter-destination',
+        'stderr',
+      );
+      expect(reported.stdout).toContain('ok 1 - sums');
+      expect(reported.stderr).toContain('.');
+      expect(await readFile(report, 'utf8')).toContain('<testcase name="sums"');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }

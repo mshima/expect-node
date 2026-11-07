@@ -38,7 +38,8 @@ export type TestContext = { skip: (message?: string) => never };
 export type Done = ((error?: unknown) => void) & TestContext;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Fn = (this: MochaThis, context: Done) => any;
-type Options = { timeout?: number; skip?: boolean; only?: boolean; todo?: boolean };
+/** The options of a test or a suite; `tags` of the newer versions of node:test (`--experimental-test-tag-filter`). */
+type Options = { timeout?: number; skip?: boolean; only?: boolean; todo?: boolean; tags?: string[] };
 /** A test or a suite: its name, its options or not, its function, the timeout of Vitest and Jest after it. */
 type Declare = (name: string, optionsOrFn?: Options | Fn, fnOrTimeout?: Fn | number) => void;
 

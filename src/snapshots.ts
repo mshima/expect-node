@@ -11,6 +11,9 @@ import { expect as jestExpect } from 'expect';
 
 import { ENV } from './env.ts';
 
+/** The tests filtered by their names or by only (see cli.ts). */
+const FILTERED = process.env[ENV.filtered] === 'true';
+
 // Without jest-snapshot, which its tests have.
 /* node:coverage ignore next */
 const snapshots = await import('jest-snapshot').catch(() => undefined);
@@ -89,7 +92,8 @@ export const snapshotErrors = (): Error[] => (jestExpect.getState() as { suppres
 export const saveSnapshots = (): void => {
   for (const { state, failed, skipped } of snapshotFiles.values()) {
     for (const name of skipped) state.markSnapshotsAsCheckedForTest(name);
-    if (!failed) state.removeUncheckedKeys();
+    // The tests filtered by their names or by only: the snapshots of the others, not run, kept as they are.
+    if (!failed && !FILTERED) state.removeUncheckedKeys();
     state.save();
   }
   snapshotFiles.clear();
