@@ -30,6 +30,13 @@ export const callerSite = (): Site => {
  */
 type Call = (declare: unknown, args: unknown[]) => unknown;
 const calls = new Map<string, Call>();
+
+/**
+ * The calls held while a worker imports a test file, made then at once in the suite of the file (see worker.ts): node
+ * filtering the tests by their names drops a suite of a run started that has none of its tests when it starts.
+ */
+export const declarations: { held?: (() => unknown)[] } = {};
+
 export const callAt = ({ file, line, column }: Site, declare: unknown, args: unknown[]) => {
   const key = `${file}:${line}:${column}`;
   let call = calls.get(key);
@@ -41,6 +48,10 @@ export const callAt = ({ file, line, column }: Site, declare: unknown, args: unk
       columnOffset: column - 1 - 'return '.length,
     }) as unknown as Call;
     calls.set(key, call);
+  }
+  if (declarations.held) {
+    declarations.held.push(() => call(declare, args));
+    return undefined;
   }
   return call(declare, args);
 };

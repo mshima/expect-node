@@ -16,7 +16,7 @@ import { mergeCoverageOf } from './coverage.ts';
 import { DEFAULT_DURATIONS, longestFirst, recordDurations } from './durations.ts';
 import { ENV } from './env.ts';
 import { givenFiles, globFiles } from './files.ts';
-import { pool } from './pool.ts';
+import { nameTestFiles, pool } from './pool.ts';
 
 // A runner, never a test file: run by a test (its own tests), node:test would take it for one of its files.
 delete process.env.NODE_TEST_CONTEXT;
@@ -237,6 +237,7 @@ stream.on('test:fail', () => {
 mergeCoverageOf(stream as unknown as Parameters<typeof mergeCoverageOf>[0], coverage);
 if (workersPool) stream.once('close', workersPool.close);
 if (writeDurations) recordDurations(stream, durations, workersPool !== undefined);
+nameTestFiles(stream, workersPool?.filesOf);
 // Watched until an interruption (Ctrl+C), which ends the run as an exit: its test processes closed, its coverage written.
 if (values.watch) process.once('SIGINT', () => process.exit(130));
 /**
