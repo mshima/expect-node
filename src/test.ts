@@ -105,7 +105,7 @@ const withContext =
       },
     };
     const file = snapshotFileOf(testPath);
-    if (file) setSnapshotTest({ file, name, testPath });
+    setSnapshotTest({ file, name });
     try {
       if (skipNext || skippedOf(of)) {
         skipNext = false;
@@ -117,15 +117,13 @@ const withContext =
           })
         : callTest(fn, undefined, context));
       // The snapshots that do not match fail the test once it ran, as the runner of Jest does.
-      // Without jest-snapshot, which its tests have.
-      /* node:coverage ignore next */
-      const errors = file ? snapshotErrors() : [];
+      const errors = snapshotErrors();
       if (errors.length > 0) {
         throw errors.length === 1 ? errors[0] : new AggregateError(errors, `${errors.length} snapshots do not match`);
       }
     } catch (error) {
       if (error === SKIPPED) {
-        file?.skipped.add(name);
+        file.skipped.add(name);
         return;
       }
       if (file) file.failed = true;
@@ -216,7 +214,7 @@ export const it = declaring('test', (title, options, fn) => {
   // Without a module of the test file (a REPL, node -e), the module declaring the test.
   /* node:coverage ignore next */
   const testPath = running.file ?? site.file;
-  if (options.skip) snapshotFileOf(testPath)?.skipped.add(name);
+  if (options.skip) snapshotFileOf(testPath).skipped.add(name);
   // A test of mocha within its own timeout (see timed of mocha.ts); else its own, of its suite or of the configuration.
   const timeout = MOCHA ? Infinity : (options.timeout ?? timeoutOf(suite) ?? DEFAULT_TIMEOUT);
   return callAt(site, nodeTest.it, [

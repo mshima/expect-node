@@ -47,8 +47,12 @@
     "test": "node src/cli.ts --coverage"
   },
   "dependencies": {
+    "@jest/expect-utils": "^30.5.2",
     "expect": "^30.5.2",
-    "jest-mock": "^30.5.2"
+    "jest-diff": "^30.5.2",
+    "jest-matcher-utils": "^30.5.2",
+    "jest-mock": "^30.5.2",
+    "pretty-format": "^30.5.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -60,19 +64,10 @@
     "eslint-plugin-n": "^18.4.1",
     "eslint-plugin-prettier": "^5.5.6",
     "globals": "^17.13.0",
-    "jest-snapshot": "^30.5.2",
     "jiti": "^2.7.0",
     "prettier": "^3.9.9",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.0"
-  },
-  "peerDependencies": {
-    "jest-snapshot": "^30.0.0"
-  },
-  "peerDependenciesMeta": {
-    "jest-snapshot": {
-      "optional": true
-    }
   },
   "engines": {
     "node": ">=22.15.0"
