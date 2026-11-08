@@ -1,7 +1,9 @@
 /**
  * The snapshots of a test file, as the SnapshotState of jest-snapshot (MIT, Meta Platforms) keeps them: read from its
  * file, matched by the names of the tests and their counts, written as the update says (`all`, `new` or `none`), the
- * ones no test checked removed by an update of all of them.
+ * ones no test checked removed by an update of all of them. The snapshots named by Vitest (the default) or by Jest
+ * (see `names`), the ones of the other names read too; the files of Jest and of Vitest read, and written in the format
+ * of expect-node once they change, or by an update of all of them.
  */
 import { existsSync, unlinkSync } from 'node:fs';
 
@@ -22,6 +24,8 @@ export type UpdateSnapshot = 'all' | 'new' | 'none';
 
 export type SnapshotMatch = {
   testName: string;
+  /** The name of the test of the other names (see `names`): its snapshot of a file of them, taken as its own. */
+  otherName?: string | undefined;
   received: unknown;
   isInline: boolean;
   inlineSnapshot?: string | undefined;
@@ -31,7 +35,22 @@ export type SnapshotMatch = {
 
 export type SnapshotResult = { actual: string; count: number; expected: string | undefined; pass: boolean };
 
+/** The names of the snapshots: of Vitest, its titles and its hint by ` > `; of Jest, by spaces and `: `. */
+export type SnapshotNames = 'vitest' | 'jest';
+
+/**
+ * The snapshots of a file of Jest or of Vitest, or of the other names: `changed` written in the format of expect-node
+ * once their file changes; `all`, every file of them so by a run that writes snapshots; `keep`, their names and the
+ * header of their file kept.
+ */
+export type SnapshotMigration = 'changed' | 'all' | 'keep';
+
 export class SnapshotState {
+  /** The names of the snapshots of its file, by which its tests name them (see snapshots.ts). */
+  readonly names: SnapshotNames;
+  private readonly migration: SnapshotMigration;
+  /** The header of its file, written again with `keep`. */
+  private readonly header: string | undefined;
   private readonly snapshotPath: string;
   private readonly snapshotFormat: OptionsReceived;
   private readonly update: UpdateSnapshot;
@@ -41,23 +60,49 @@ export class SnapshotState {
   private readonly counters = new Map<string, number>();
   private readonly inlineSnapshots: InlineSnapshot[] = [];
 
-  constructor(snapshotPath: string, options: { updateSnapshot: UpdateSnapshot; snapshotFormat: OptionsReceived }) {
+  constructor(
+    snapshotPath: string,
+    options: { updateSnapshot: UpdateSnapshot; snapshotFormat: OptionsReceived; names?: SnapshotNames; migration?: SnapshotMigration },
+  ) {
     this.snapshotPath = snapshotPath;
     this.update = options.updateSnapshot;
     this.snapshotFormat = options.snapshotFormat;
-    const { data, dirty } = readSnapshotFile(snapshotPath, this.update);
+    this.names = options.names ?? 'vitest';
+    this.migration = options.migration ?? 'changed';
+    const { data, dirty, foreignHeader } = readSnapshotFile(snapshotPath, this.update);
     this.data = data;
-    this.dirty = dirty;
+    this.header = this.migration === 'keep' ? foreignHeader : undefined;
+    // A file of Jest or of Vitest written in the format of expect-node at once, by `all`.
+    this.dirty = dirty || (foreignHeader !== undefined && this.migration === 'all' && this.update !== 'none');
     this.unchecked = new Set(Object.keys(data));
   }
 
-  /** The snapshots of a test not run (skipped) kept: checked, never removed as obsolete. */
-  markSnapshotsAsCheckedForTest(testName: string) {
+  /** The snapshots of a test not run (skipped) kept, by its titles: checked, never removed as obsolete. */
+  markSnapshotsAsCheckedForTest(titles: string[]) {
+    // Of Jest, its titles by spaces and a hint after ': '; of Vitest, its titles and a hint by ' > '.
+    const tests = [titles.join(' '), titles.join(' > ')];
     for (const key of this.unchecked) {
       const name = keyToTestName(key);
-      // The name of a snapshot with a hint is the one of its test, ': ' and the hint.
-      if (name === testName || name.startsWith(`${testName}: `)) this.unchecked.delete(key);
+      if (tests.some(test => name === test || name.startsWith(`${test}: `) || name.startsWith(`${test} > `))) this.unchecked.delete(key);
     }
+  }
+
+  /**
+   * The key of a snapshot of a test, the one of the other names (a file of Jest, of Vitest, or of the other names of
+   * expect-node) taken as its own: renamed, written so once the file changes, as it is else.
+   */
+  private keyOf(testName: string, count: number, otherName?: string) {
+    const key = testNameToKey(testName, count);
+    const otherKey = otherName === undefined ? undefined : testNameToKey(otherName, count);
+    if (otherKey === undefined || this.data[key] !== undefined || this.data[otherKey] === undefined) return key;
+    // Kept by its name, with `keep`.
+    if (this.migration === 'keep') return otherKey;
+    this.data[key] = this.data[otherKey];
+    delete this.data[otherKey];
+    if (this.unchecked.delete(otherKey)) this.unchecked.add(key);
+    // Renamed at once, with `all`, by a run that writes snapshots.
+    if (this.migration === 'all' && this.update !== 'none') this.dirty = true;
+    return key;
   }
 
   private count(testName: string) {
@@ -73,9 +118,9 @@ export class SnapshotState {
   }
 
   match(match: SnapshotMatch): SnapshotResult {
-    const { testName, received, isInline, inlineSnapshot } = match;
+    const { testName, otherName, received, isInline, inlineSnapshot } = match;
     const count = this.count(testName);
-    const key = testNameToKey(testName, count);
+    const key = this.keyOf(testName, count, otherName);
     // An inline snapshot of a test that has one in the file too: the one of the file left unchecked, removed by an
     // update of all of them.
     if (!(isInline && this.data[key] !== undefined)) this.unchecked.delete(key);
@@ -105,8 +150,8 @@ export class SnapshotState {
   }
 
   /** A snapshot of a test failed before it is matched (its properties): checked, its key given. */
-  fail(testName: string) {
-    const key = testNameToKey(testName, this.count(testName));
+  fail(testName: string, otherName?: string) {
+    const key = this.keyOf(testName, this.count(testName), otherName);
     this.unchecked.delete(key);
     return key;
   }
@@ -123,8 +168,9 @@ export class SnapshotState {
   save() {
     const hasExternal = Object.keys(this.data).length > 0;
     const hasInline = this.inlineSnapshots.length > 0;
-    if ((this.dirty || this.unchecked.size > 0) && (hasExternal || hasInline)) {
-      if (hasExternal) writeSnapshotFile(this.data, this.snapshotPath);
+    // Written once changed only: a file of Jest or of Vitest kept as it is, its header too, until it changes.
+    if (this.dirty && (hasExternal || hasInline)) {
+      if (hasExternal) writeSnapshotFile(this.data, this.snapshotPath, this.header);
       if (hasInline) writeInlineSnapshots(this.inlineSnapshots);
     } else if (!hasExternal && this.update === 'all' && existsSync(this.snapshotPath)) {
       unlinkSync(this.snapshotPath);

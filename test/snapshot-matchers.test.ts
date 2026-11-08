@@ -6,9 +6,12 @@ import { join } from 'node:path';
 
 import { describe, expect, fn, it } from '../src/index.ts';
 import { keyToTestName, naturalCompare, testNameToKey } from '../src/snapshot-format.ts';
-import { SnapshotState, type UpdateSnapshot } from '../src/snapshot-state.ts';
+import { SnapshotState, type SnapshotMigration, type SnapshotNames, type UpdateSnapshot } from '../src/snapshot-state.ts';
 
-const HEADER = '// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing';
+/** The header of the files written; of the ones of Jest and of Vitest, read. */
+const HEADER = '// expect-node Snapshot v1, https://github.com/mshima/expect-node#snapshots';
+const JEST = '// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing';
+const VITEST = '// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html';
 const FORMAT = { escapeString: false, printBasicPrototype: false };
 
 /**
@@ -22,6 +25,8 @@ const withSnapshots = async (
   assertions: () => unknown,
   after?: (state: SnapshotState) => void,
   currentTestName: string | undefined = 't',
+  currentTestTitles?: string[],
+  options: { names?: SnapshotNames; migration?: SnapshotMigration } = {},
 ) => {
   const folder = await mkdtemp(join(tmpdir(), 'expect-node-snapshot-'));
   const path = join(folder, 'a.snap');
@@ -29,11 +34,11 @@ const withSnapshots = async (
     if (typeof given === 'string') await writeFile(path, given);
     else if (given) {
       const entries = Object.entries(given).map(([key, value]) => `exports[\`${key}\`] = \`${value}\`;`);
-      await writeFile(path, `${HEADER}\n\n${entries.join('\n\n')}\n`);
+      await writeFile(path, `${JEST}\n\n${entries.join('\n\n')}\n`);
     }
     const previous = expect.getState();
-    const state = new SnapshotState(path, { updateSnapshot: update, snapshotFormat: FORMAT });
-    expect.setState({ snapshotState: state, currentTestName, suppressedErrors: [] } as never);
+    const state = new SnapshotState(path, { updateSnapshot: update, snapshotFormat: FORMAT, ...options });
+    expect.setState({ snapshotState: state, currentTestName, currentTestTitles, suppressedErrors: [] } as never);
     let errors: Error[];
     try {
       await assertions();
@@ -148,7 +153,7 @@ describe('the snapshot matchers', () => {
       { 't 1': '"before"', 'gone 1': '"gone"', 'skipped: with a hint 1': '"kept"' },
       () => expect('after').toMatchSnapshot(),
       state => {
-        state.markSnapshotsAsCheckedForTest('skipped');
+        state.markSnapshotsAsCheckedForTest(['skipped']);
         state.removeUncheckedKeys();
       },
     );
@@ -162,12 +167,8 @@ describe('the snapshot matchers', () => {
     expect(removed.file).toBeUndefined();
   });
 
-  it('fails on a file that is not of the snapshots of Jest v1 in CI, written again else', async () => {
-    for (const given of [
-      'exports[`t 1`] = `"a"`;\n',
-      '// Jest Snapshot v2, https://jestjs.io/docs/snapshot-testing\n',
-      '// Jest Snapshot v1, https://goo.gl/fbAQLP\n',
-    ]) {
+  it('fails on a file that is not of the snapshots of expect-node, Jest or Vitest v1 in CI, written again else', async () => {
+    for (const given of ['exports[`t 1`] = `"a"`;\n', '// Jest Snapshot v2, https://jestjs.io/docs/snapshot-testing\n']) {
       await expect(withSnapshots('none', given, () => undefined)).rejects.toThrow(/Outdated/);
       expect((await withSnapshots('new', given, () => expect('a').toMatchSnapshot())).file).toBe(
         `${HEADER}\n\nexports[\`t 1\`] = \`"a"\`;\n`,
@@ -177,6 +178,103 @@ describe('the snapshot matchers', () => {
     expect((await withSnapshots('new', `${HEADER}\n\nnot a script(`, () => expect('a').toMatchSnapshot())).file).toBe(
       `${HEADER}\n\nexports[\`t 1\`] = \`"a"\`;\n`,
     );
+  });
+
+  it('keeps a file of Jest or of Vitest as it is until it changes, then writes it in the format of expect-node', async () => {
+    const jest = `${JEST}\n\nexports[\`t 1\`] = \`"a"\`;\n`;
+    for (const given of [jest, `// Jest Snapshot v1, https://goo.gl/fbAQLP\n\nexports[\`t 1\`] = \`"a"\`;\n`]) {
+      expect((await withSnapshots('none', given, () => expect('a').toMatchSnapshot())).file).toBe(given);
+    }
+    const vitest = [
+      `${VITEST}\n`,
+      'exports[`s > skipped 1`] = `"kept"`;\n',
+      'exports[`s > t 1`] = `"a"`;\n',
+      'exports[`s > t > hint 1`] = `"h"`;\n',
+    ].join('\n');
+    const run = (update: UpdateSnapshot, assertions: () => unknown, after?: (state: SnapshotState) => void) =>
+      withSnapshots(update, vitest, assertions, after, 's t', ['s', 't'], { names: 'jest' });
+    // Matched by the names of Vitest, its titles and its hint by ' > ', the file as it is.
+    const matched = await run('none', () => {
+      expect('a').toMatchSnapshot();
+      expect('h').toMatchSnapshot('hint');
+    });
+    expect(matched).toEqual({ messages: [], file: vitest });
+    // A new snapshot: the file written by the names of Jest, the ones of the tests not run as they are.
+    const added = await run('new', () => {
+      expect('a').toMatchSnapshot();
+      expect('b').toMatchSnapshot();
+      expect('h').toMatchSnapshot('hint');
+    });
+    expect(added.file).toBe(
+      `${HEADER}\n\nexports[\`s > skipped 1\`] = \`"kept"\`;\n\nexports[\`s t 1\`] = \`"a"\`;\n\n` +
+        'exports[`s t 2`] = `"b"`;\n\nexports[`s t: hint 1`] = `"h"`;\n',
+    );
+    // An update of all of them: a snapshot of a test skipped kept by its titles, a property failing on its own.
+    const updated = await run(
+      'all',
+      () => {
+        expect('changed').toMatchSnapshot();
+        expect({ id: 'x' }).toMatchSnapshot({ id: expect.any(Number) }, 'hint');
+      },
+      state => {
+        state.markSnapshotsAsCheckedForTest(['s', 'skipped']);
+        state.removeUncheckedKeys();
+      },
+    );
+    expect(updated.messages).toHaveLength(1);
+    expect(updated.messages[0]).toContain('Snapshot name: `s t: hint 1`');
+    expect(updated.file).toBe(
+      `${HEADER}\n\nexports[\`s > skipped 1\`] = \`"kept"\`;\n\nexports[\`s t 1\`] = \`"changed"\`;\n\n` +
+        'exports[`s t: hint 1`] = `"h"`;\n',
+    );
+  });
+
+  it('names the snapshots as Vitest by default, the ones of Jest taken as theirs, and migrates them as configured', async () => {
+    const jest = `${JEST}\n\nexports[\`s t 1\`] = \`"a"\`;\n\nexports[\`s t: hint 1\`] = \`"h"\`;\n`;
+    const run = (update: UpdateSnapshot, assertions: () => unknown, migration?: SnapshotMigration) =>
+      withSnapshots(update, jest, assertions, undefined, 's t', ['s', 't'], migration && { migration });
+    const both = () => {
+      expect('a').toMatchSnapshot();
+      expect('h').toMatchSnapshot('hint');
+    };
+    const vitestNames = 'exports[`s > t > hint 1`] = `"h"`;\n\nexports[`s > t 1`] = `"a"`;\n';
+    // Changed: the file as it is until it changes, then by the names of Vitest.
+    expect((await run('new', both)).file).toBe(jest);
+    const changed = await run('new', () => {
+      both();
+      expect('b').toMatchSnapshot('new');
+    });
+    expect(changed.file).toBe(
+      `${HEADER}\n\nexports[\`s > t > hint 1\`] = \`"h"\`;\n\nexports[\`s > t > new 1\`] = \`"b"\`;\n\nexports[\`s > t 1\`] = \`"a"\`;\n`,
+    );
+    // All: every file at once by a run that writes snapshots, never in CI.
+    expect((await run('none', both, 'all')).file).toBe(jest);
+    expect((await run('new', both, 'all')).file).toBe(`${HEADER}\n\n${vitestNames}`);
+    // Keep: the names of the snapshots and the header of the file kept, the new ones by the names of Vitest.
+    const kept = await run(
+      'new',
+      () => {
+        both();
+        expect('c').toMatchSnapshot('new');
+        expect('d').toMatchSnapshot();
+      },
+      'keep',
+    );
+    expect(kept.messages).toEqual([]);
+    expect(kept.file).toBe(
+      `${JEST}\n\nexports[\`s > t > new 1\`] = \`"c"\`;\n\nexports[\`s > t 2\`] = \`"d"\`;\n\nexports[\`s t 1\`] = \`"a"\`;\n\n` +
+        'exports[`s t: hint 1`] = `"h"`;\n',
+    );
+    // A mismatch of a snapshot of Vitest names it so.
+    const failed = await withSnapshots(
+      'none',
+      `${HEADER}\n\nexports[\`s > t 1\`] = \`"a"\`;\n`,
+      () => expect('x').toMatchSnapshot(),
+      undefined,
+      's t',
+      ['s', 't'],
+    );
+    expect(failed.messages[0]).toContain('Snapshot name: `s > t 1`');
   });
 
   it('matches the property matchers, the snapshot of the value printing them', async () => {

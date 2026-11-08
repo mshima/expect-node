@@ -129,20 +129,25 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
 ## Snapshots
 
 `toMatchSnapshot`, `toMatchInlineSnapshot`, `toThrowErrorMatchingSnapshot`, `toThrowErrorMatchingInlineSnapshot` and
-`expect.addSnapshotSerializer`, the snapshot files of Jest and esmocha read and written as they are: in
-`__snapshots__/<test file>.snap`, named by the titles of the suites and of the test joined by spaces, in the format of
-Jest 29 and later. The test file is the one running, like Jest and mocha: a test a shared module declares for the test
-files calling it has its snapshots in theirs. A snapshot that does not match fails its test once it ran, with every
-snapshot of it that does not match, like Jest. The new snapshots are written, but in CI (`CI` set); `--update-snapshot`
-of the bin writes every one again, and removes the ones of the tests no longer there when no test of the file failed
-(`UPDATE_SNAPSHOT=all`, or `new`, or `none`).
+`expect.addSnapshotSerializer`, the snapshot files of Jest, esmocha and Vitest read: in `__snapshots__/<test
+file>.snap`, in the format of Jest 29 and later and of Vitest. The test file is the one running, like Jest and mocha: a
+test a shared module declares for the test files calling it has its snapshots in theirs. A snapshot that does not match
+fails its test once it ran, with every snapshot of it that does not match, like Jest. The new snapshots are written, but
+in CI (`CI` set); `--update-snapshot` of the bin writes every one again, and removes the ones of the tests no longer
+there when no test of the file failed (`UPDATE_SNAPSHOT=all`, or `new`, or `none`).
 
-The snapshots are expect-node's own, without `jest-snapshot` and its dependencies: the files byte for byte the ones of
-Jest, the same names, serializers (the mocks too), messages and diffs. The inline snapshots are written in the test file
-where the stack of the call tells, the argument of the matcher replaced by a template literal, or added: a template of
-several lines indented as it is, or not; a new one formatted as Prettier does it in Jest, its lines a level below the
-start of its call. Without a parser or Prettier: node strips the types of TypeScript keeping the positions of the
-source.
+The snapshots are expect-node's own, without `jest-snapshot` and its dependencies: the format of the files of Jest, the
+same serializers (the mocks too), messages and diffs. The snapshots are named as by Vitest, the titles of the suites and
+of the test and its hint joined by `>` between spaces, or as by Jest and esmocha with `snapshotNames: 'jest'` in the
+configuration, the titles joined by spaces and the hint after `:`. The files of Jest and of Vitest, and the snapshots of
+the other names, are read as they are; by `snapshotMigration` in the configuration, `changed` (the default) writes a
+file in the format of expect-node, its header `// expect-node Snapshot v1` and the names of the configuration, once it
+changes, keeping it as it is else; `all` writes every file so at once, by the next run that writes snapshots (not in
+CI); `keep` keeps the names of the snapshots and the header of their file, which Jest or Vitest still read, the new ones
+by the names of the configuration. The inline snapshots are written in the test file where the stack of the call tells,
+the argument of the matcher replaced by a template literal, or added: a template of several lines indented as it is, or
+not; a new one formatted as Prettier does it in Jest, its lines a level below the start of its call. Without a parser or
+Prettier: node strips the types of TypeScript keeping the positions of the source.
 
 ## The bin
 

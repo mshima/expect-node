@@ -205,6 +205,8 @@ Object.assign(process.env, {
   // The timeout of each test and hook but their own (see compatibility.ts).
   ...(timeout === undefined ? {} : { [ENV.timeout]: String(timeout) }),
   ...(config.reimport ? { [ENV.reimport]: 'true' } : {}),
+  ...(config.snapshotNames ? { [ENV.snapshotNames]: config.snapshotNames } : {}),
+  ...(config.snapshotMigration ? { [ENV.snapshotMigration]: config.snapshotMigration } : {}),
   ...(values['forbid-only'] || config.forbidOnly ? { [ENV.forbidOnly]: 'true' } : {}),
   ...(setup ? { [ENV.setup]: JSON.stringify(setup) } : {}),
   ...workersPool?.env,
