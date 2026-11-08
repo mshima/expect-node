@@ -67,7 +67,7 @@
     "pretty-format": "^30.5.1",
     "rollup": "^4.68.0",
     "rollup-plugin-dts": "^6.5.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.71.0"
   },
   "engines": {
