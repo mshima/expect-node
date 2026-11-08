@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run as nodeRun } from 'node:test';
@@ -314,6 +314,31 @@ describe('the expect-node bin', () => {
       const failed = await exnode('d.test.ts', 'a.test.ts');
       expect(failed.stdout).toContain('the import failed');
       expect(failed.stdout).toContain('✔ one a ');
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  });
+
+  it('migrates the snapshots of Vitest by the names and the migration of the configuration', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'expect-node-migration-'));
+    const index = pathToFileURL(join(import.meta.dirname, '../src/index.ts')).href;
+    const config = pathToFileURL(join(import.meta.dirname, '../src/config.ts')).href;
+    const snapshots = join(folder, '__snapshots__', 'a.test.ts.snap');
+    try {
+      await writeFile(
+        join(folder, 'a.test.ts'),
+        `import { describe, expect, it } from ${JSON.stringify(index)};\n\ndescribe('s', () => it('t', () => expect('a').toMatchSnapshot()));\n`,
+      );
+      await writeFile(
+        join(folder, 'expect-node.config.ts'),
+        `import { defineConfig } from ${JSON.stringify(config)};\n\nexport default defineConfig({ snapshotNames: 'jest', snapshotMigration: 'all' });\n`,
+      );
+      await mkdir(join(folder, '__snapshots__'));
+      await writeFile(snapshots, '// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html\n\nexports[`s > t 1`] = `"a"`;\n');
+      await promisify(execFile)(process.execPath, [cli], { cwd: folder, env: { ...process.env, CI: '' } });
+      expect(await readFile(snapshots, 'utf8')).toBe(
+        '// expect-node Snapshot v1, https://github.com/mshima/expect-node#snapshots\n\nexports[`s t 1`] = `"a"`;\n',
+      );
     } finally {
       await rm(folder, { recursive: true, force: true });
     }

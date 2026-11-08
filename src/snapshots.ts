@@ -30,7 +30,7 @@ import { format, type Plugin } from 'pretty-format';
 
 import { ENV } from './env.ts';
 import { addSerializer, escapeBacktickString, deserializeString, minify, serialize } from './snapshot-format.ts';
-import { SnapshotState, type UpdateSnapshot } from './snapshot-state.ts';
+import { SnapshotState, type SnapshotMigration, type UpdateSnapshot } from './snapshot-state.ts';
 
 /** The tests filtered by their names or by only (see cli.ts). */
 const FILTERED = process.env[ENV.filtered] === 'true';
@@ -46,7 +46,13 @@ const receivedColor = colored(['cyan', 'bgWhiteBright']);
 const trailingSpaceColor = colored('bgYellow');
 const noColor: Color = text => text;
 
-type Context = MatcherContext & { snapshotState?: SnapshotState; currentTestName?: string; error?: Error };
+type Context = MatcherContext & {
+  snapshotState?: SnapshotState;
+  currentTestName?: string;
+  /** The titles of the suites and of the test, by which Vitest names its snapshots. */
+  currentTestTitles?: string[];
+  error?: Error;
+};
 type Config = {
   context: Context;
   matcherName: string;
@@ -75,9 +81,9 @@ const hintOf = ({ context: { isNot, promise }, hint, inlineSnapshot, matcherName
   return matcherHint(matcherName, undefined, PROPERTIES_ARG, { isNot, promise, ...(named && { secondArgument: named }) });
 };
 
-/** The name of a snapshot in a message, as in its file, its hint in bold. */
-const printSnapshotName = (names = '', hint = '', count: number) =>
-  `Snapshot name: \`${names ? escapeBacktickString(names) : ''}${names && hint ? ': ' : ''}${hint ? BOLD_WEIGHT(escapeBacktickString(hint)) : ''} ${count}\``;
+/** The name of a snapshot in a message, as in its file, its hint in bold after a separator. */
+const printSnapshotName = (names = '', hint = '', count: number, separator = ': ') =>
+  `Snapshot name: \`${names ? escapeBacktickString(names) : ''}${names && hint ? separator : ''}${hint ? BOLD_WEIGHT(escapeBacktickString(hint)) : ''} ${count}\``;
 
 const isLineDiffable = (received: unknown) => {
   if (received === null || (typeof received !== 'object' && typeof received !== 'function')) return typeof received === 'string';
@@ -209,14 +215,23 @@ const matchSnapshot = (config: Config) => {
   let { received } = config;
   // The errors given to expect, the test failed with them once it ran (see test.ts).
   context.dontThrow();
-  const { isNot, snapshotState, currentTestName } = context;
+  const { isNot, snapshotState, currentTestName, currentTestTitles } = context;
   if (isNot) throw new Error(matcherErrorMessage(hintOf(config), NOT_SNAPSHOT_MATCHERS));
   if (!snapshotState) {
     throw new Error(
       `${hintOf(config)}\n\nSnapshot state must be initialized\n\n${printWithType('Snapshot state', snapshotState, stringify)}`,
     );
   }
-  const testName = currentTestName && hint ? `${currentTestName}: ${hint}` : currentTestName || '';
+  // The names of Jest, the titles by spaces and the hint after ': ', and of Vitest, the titles and the hint by ' > ':
+  // the ones of the state, a snapshot of the others taken as its own.
+  const jestName = currentTestName && hint ? `${currentTestName}: ${hint}` : currentTestName || '';
+  const titles = currentTestTitles?.join(' > ');
+  const vitestName = titles === undefined ? undefined : [titles, ...(hint ? [hint] : [])].join(' > ');
+  const vitest = snapshotState.names === 'vitest' && vitestName !== undefined;
+  const testName = vitest ? vitestName : jestName;
+  const otherName = vitest ? jestName : vitestName;
+  const nameOf = (count: number) =>
+    vitest ? printSnapshotName(titles, hint, count, ' > ') : printSnapshotName(currentTestName, hint, count);
   if (typeof properties === 'object') {
     if (typeof received !== 'object' || received === null) {
       throw new Error(
@@ -230,17 +245,17 @@ const matchSnapshot = (config: Config) => {
     if (context.equals(received, properties, [context.utils.iterableEquality, context.utils.subsetEquality])) {
       received = deepMerge(received, properties);
     } else {
-      const key = snapshotState.fail(testName);
+      const key = snapshotState.fail(testName, otherName);
       const count = Number(/(\d+)$/.exec(key)![1]);
       return {
         pass: false,
-        message: () =>
-          `${hintOf(config)}\n\n${printSnapshotName(currentTestName, hint, count)}\n\n${printPropertiesAndReceived(properties, received as object)}`,
+        message: () => `${hintOf(config)}\n\n${nameOf(count)}\n\n${printPropertiesAndReceived(properties, received as object)}`,
       };
     }
   }
   const { actual, count, expected, pass } = snapshotState.match({
     testName,
+    otherName,
     received,
     isInline,
     inlineSnapshot,
@@ -250,7 +265,7 @@ const matchSnapshot = (config: Config) => {
   // The message of a match, never printed: the snapshot matchers cannot be used with not.
   /* node:coverage ignore next */
   if (pass) return { pass: true, message: () => '' };
-  const name = printSnapshotName(currentTestName, hint, count);
+  const name = nameOf(count);
   return {
     pass: false,
     actual,
@@ -403,7 +418,7 @@ jestExpect.extend({
 Object.assign(jestExpect, { addSnapshotSerializer: (serializer: Plugin) => addSerializer(serializer) });
 
 /** The snapshots of a test file, whether a test of it failed, and its tests skipped. */
-type SnapshotFile = { state: SnapshotState; failed: boolean; skipped: Set<string> };
+type SnapshotFile = { state: SnapshotState; failed: boolean; skipped: string[][] };
 
 const snapshotFiles = new Map<string, SnapshotFile>();
 
@@ -417,16 +432,28 @@ export const snapshotFileOf = (testPath: string): SnapshotFile => {
     const state = new SnapshotState(join(dirname(testPath), '__snapshots__', `${basename(testPath)}.snap`), {
       updateSnapshot,
       snapshotFormat: { escapeString: false, printBasicPrototype: false },
+      // By `snapshotNames` of the configuration.
+      names: process.env[ENV.snapshotNames] === 'jest' ? 'jest' : 'vitest',
+      // By `snapshotMigration` of the configuration.
+      migration: (process.env[ENV.snapshotMigration] ?? 'changed') as SnapshotMigration,
     });
-    file = { state, failed: false, skipped: new Set() };
+    file = { state, failed: false, skipped: [] };
     snapshotFiles.set(testPath, file);
   }
   return file;
 };
 
-/** The test the snapshot matchers are of (snapshotState and currentTestName of the state of expect), or none. */
-export const setSnapshotTest = (test?: { file: SnapshotFile; name: string }) =>
-  jestExpect.setState({ snapshotState: test?.file.state, currentTestName: test?.name, suppressedErrors: [] } as never);
+/**
+ * The test the snapshot matchers are of (snapshotState, currentTestName and currentTestTitles of the state of expect),
+ * or none.
+ */
+export const setSnapshotTest = (test?: { file: SnapshotFile; name: string; titles: string[] }) =>
+  jestExpect.setState({
+    snapshotState: test?.file.state,
+    currentTestName: test?.name,
+    currentTestTitles: test?.titles,
+    suppressedErrors: [],
+  } as never);
 
 /**
  * The snapshots of a test that do not match: the matchers give their errors to expect (`suppressedErrors`) instead of
@@ -444,7 +471,7 @@ export const saveSnapshots = (): void => {
   const files = [...snapshotFiles.values()];
   snapshotFiles.clear();
   for (const { state, failed, skipped } of files) {
-    for (const name of skipped) state.markSnapshotsAsCheckedForTest(name);
+    for (const titles of skipped) state.markSnapshotsAsCheckedForTest(titles);
     // The tests filtered by their names or by only: the snapshots of the others, not run, kept as they are.
     if (!failed && !FILTERED) state.removeUncheckedKeys();
     state.save();

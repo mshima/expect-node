@@ -15,6 +15,10 @@ export const ENV = {
   forbidOnly: 'EXNODE_FORBID_ONLY',
   /** `true`, the modules imported again after a mock (see mocks.ts), by `reimport`. */
   reimport: 'EXNODE_REIMPORT',
+  /** `jest`, the names of the snapshots of Jest (see snapshots.ts), by `snapshotNames`; of Vitest else. */
+  snapshotNames: 'EXNODE_SNAPSHOT_NAMES',
+  /** `changed`, `all` or `keep`, the migration of the snapshots of other names (see snapshots.ts), by `snapshotMigration`. */
+  snapshotMigration: 'EXNODE_SNAPSHOT_MIGRATION',
   /** The setup files and the modules of mocha hooks, as JSON (see setup.ts), by `setupFiles` and `mochaHooks`. */
   setup: 'EXNODE_SETUP',
   /** The socket of the queue of the test files of the workers (see pool.ts and worker.ts), by `workers`. */

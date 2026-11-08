@@ -1,7 +1,8 @@
 /**
- * The format of the snapshots of Jest (v1), byte for byte the one of jest-snapshot and @jest/snapshot-utils (MIT,
- * Meta Platforms), whose behavior this follows: the values printed by pretty-format with the serializers of Jest, the
- * file `__snapshots__/<test file>.snap` of the snapshots by their keys, each one a template literal.
+ * The format of the snapshots of Jest (v1), the one of jest-snapshot and @jest/snapshot-utils (MIT, Meta Platforms),
+ * whose behavior this follows: the values printed by pretty-format with the serializers of Jest, the file
+ * `__snapshots__/<test file>.snap` of the snapshots by their keys, each one a template literal. Written with the header
+ * of expect-node; the files of Jest and of Vitest, of the same format but their headers (and the names of Vitest), read.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -114,16 +115,18 @@ export const naturalCompare = (a: string, b: string): number => {
   return 0;
 };
 
-const HEADER = '// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing';
+/** The header of the files of expect-node, which reads the ones of Jest and of Vitest too. */
+const HEADER = '// expect-node Snapshot v1, https://github.com/mshima/expect-node#snapshots';
+const HEADERS = /^\/\/ (expect-node|Jest|Vitest) Snapshot v1, /;
 
-/** The error of a file whose header is not the one of the snapshots of Jest v1, none when it is. */
+/** The error of a file whose header is not the one of the snapshots of expect-node, Jest or Vitest v1, if any. */
 const headerError = (contents: string) => {
   const [header] = contents.split('\n', 1);
-  if (header === HEADER) return undefined;
+  if (HEADERS.test(header)) return undefined;
   return new Error(
-    `Outdated snapshot: the header of the file is not the one of the snapshots of Jest v1, update all of them.\n\n` +
-      `Expected: ${HEADER}\nReceived: ${header}\n\nBefore you upgrade snapshots, we recommend that you revert any local ` +
-      'changes to tests or other code, to ensure that you do not store invalid state.',
+    `Outdated snapshot: the header of the file is not the one of the snapshots of expect-node, Jest or Vitest v1, ` +
+      `update all of them.\n\nExpected: ${HEADER}\nReceived: ${header}\n\nBefore you upgrade snapshots, we recommend ` +
+      'that you revert any local changes to tests or other code, to ensure that you do not store invalid state.',
   );
 };
 
@@ -138,7 +141,6 @@ export const readSnapshotFile = (snapshotPath: string, update: 'all' | 'new' | '
     try {
       contents = readFileSync(snapshotPath, 'utf8');
       // The file of Jest is a script setting its exports, run as such.
-
       new Function('exports', contents)(data);
     } catch {
       // A file that is not a script: its snapshots none, written again.
@@ -146,13 +148,16 @@ export const readSnapshotFile = (snapshotPath: string, update: 'all' | 'new' | '
   }
   const invalid = contents ? headerError(contents) : undefined;
   if (invalid && update === 'none') throw invalid;
-  return { data, dirty: invalid !== undefined };
+  // A file of Jest or of Vitest, or of another header written again.
+  const foreign = contents !== '' && HEADERS.exec(contents)?.[1] !== 'expect-node';
+  return { data, dirty: invalid !== undefined, foreign, header: contents.split('\n', 1)[0] };
 };
 
-export const writeSnapshotFile = (data: Record<string, string>, snapshotPath: string) => {
+/** Writes the snapshots of a file, with the header of expect-node or the one given (of the file read, kept). */
+export const writeSnapshotFile = (data: Record<string, string>, snapshotPath: string, header = HEADER) => {
   const snapshots = Object.keys(data)
     .sort(naturalCompare)
     .map(key => `exports[${printBacktickString(key)}] = ${printBacktickString(normalizeNewlines(data[key]))};`);
   mkdirSync(dirname(snapshotPath), { recursive: true });
-  writeFileSync(snapshotPath, `${HEADER}\n\n${snapshots.join('\n\n')}\n`);
+  writeFileSync(snapshotPath, `${header}\n\n${snapshots.join('\n\n')}\n`);
 };

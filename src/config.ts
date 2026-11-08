@@ -76,6 +76,22 @@ export type Config = {
    */
   reimport?: boolean;
   /**
+   * The names of the snapshots in their files: `vitest` (the default) the titles of the suites and of the test and its
+   * hint joined by ` > `, like Vitest; `jest` the titles joined by spaces and the hint after `: `, like Jest and
+   * esmocha. A snapshot of the other names is read too, and written by these once its file changes.
+   */
+  snapshotNames?: 'vitest' | 'jest';
+  /**
+   * The snapshots of a file of Jest or of Vitest, or of the other names:
+   *
+   * - `changed` (the default): their file written in the format of expect-node, by these names and its header, once it
+   *   changes; a file that does not change kept as it is.
+   * - `all`: every file of them written so at once, by the next run that writes snapshots (not in CI).
+   * - `keep`: their names kept, and the header of their file, which Jest or Vitest still read; the new ones by these
+   *   names.
+   */
+  snapshotMigration?: 'changed' | 'all' | 'keep';
+  /**
    * A test or a suite declared only (`.only`, `{ only: true }`) fails, like mocha --forbid-only (the `--forbid-only` of
    * the bin): a `.only` left behind fails the run in CI, where node:test runs every test but with --test-only.
    */

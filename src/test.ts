@@ -96,8 +96,9 @@ const callTest = (fn: Fn, self: MochaThis | undefined, context: TestContext): un
  * snapshots of its file.
  */
 const withContext =
-  (fn: Fn, name: string, testPath: string, of: Suite) =>
+  (fn: Fn, titles: string[], testPath: string, of: Suite) =>
   async (t: { skip: (message?: string) => void }): Promise<void> => {
+    const name = titles.join(' ');
     const context: TestContext = {
       skip: message => {
         t.skip(message);
@@ -105,7 +106,7 @@ const withContext =
       },
     };
     const file = snapshotFileOf(testPath);
-    setSnapshotTest({ file, name });
+    setSnapshotTest({ file, name, titles });
     try {
       if (skipNext || skippedOf(of)) {
         skipNext = false;
@@ -123,7 +124,7 @@ const withContext =
       }
     } catch (error) {
       if (error === SKIPPED) {
-        file.skipped.add(name);
+        file.skipped.push(titles);
         return;
       }
       if (file) file.failed = true;
@@ -208,19 +209,19 @@ export const describe = declaring('suite', (title, { timeout, ...options }, fn) 
 );
 export const it = declaring('test', (title, options, fn) => {
   const site = callerSite();
-  const name = [...suite.titles, title].join(' ');
+  const titles = [...suite.titles, title];
   // A test skipped keeps its snapshots.
   // The snapshots of the test file running, not of the module declaring the test (a helper of several test files).
   // Without a module of the test file (a REPL, node -e), the module declaring the test.
   /* node:coverage ignore next */
   const testPath = running.file ?? site.file;
-  if (options.skip) snapshotFileOf(testPath).skipped.add(name);
+  if (options.skip) snapshotFileOf(testPath).skipped.push(titles);
   // A test of mocha within its own timeout (see timed of mocha.ts); else its own, of its suite or of the configuration.
   const timeout = MOCHA ? Infinity : (options.timeout ?? timeoutOf(suite) ?? DEFAULT_TIMEOUT);
   return callAt(site, nodeTest.it, [
     title,
     timeout === undefined ? options : { ...options, timeout },
-    fn && withContext(fn, name, testPath, suite),
+    fn && withContext(fn, titles, testPath, suite),
   ]);
 });
 /** The `test` of Jest and Vitest. */
