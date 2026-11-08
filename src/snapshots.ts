@@ -30,7 +30,7 @@ import { format, type Plugin } from 'pretty-format';
 
 import { ENV } from './env.ts';
 import { addSerializer, escapeBacktickString, deserializeString, minify, serialize } from './snapshot-format.ts';
-import { SnapshotState, type SnapshotMigration, type UpdateSnapshot } from './snapshot-state.ts';
+import { SnapshotState, type SnapshotMigration, type SnapshotNames, type UpdateSnapshot } from './snapshot-state.ts';
 
 /** The tests filtered by their names or by only (see cli.ts). */
 const FILTERED = process.env[ENV.filtered] === 'true';
@@ -230,8 +230,7 @@ const matchSnapshot = (config: Config) => {
   const vitest = snapshotState.names === 'vitest' && vitestName !== undefined;
   const testName = vitest ? vitestName : jestName;
   const otherName = vitest ? jestName : vitestName;
-  const nameOf = (count: number) =>
-    vitest ? printSnapshotName(titles, hint, count, ' > ') : printSnapshotName(currentTestName, hint, count);
+  const nameOf = (count: number) => printSnapshotName(vitest ? titles : currentTestName, hint, count, vitest ? ' > ' : ': ');
   if (typeof properties === 'object') {
     if (typeof received !== 'object' || received === null) {
       throw new Error(
@@ -433,9 +432,9 @@ export const snapshotFileOf = (testPath: string): SnapshotFile => {
       updateSnapshot,
       snapshotFormat: { escapeString: false, printBasicPrototype: false },
       // By `snapshotNames` of the configuration.
-      names: process.env[ENV.snapshotNames] === 'jest' ? 'jest' : 'vitest',
+      names: process.env[ENV.snapshotNames] as SnapshotNames | undefined,
       // By `snapshotMigration` of the configuration.
-      migration: (process.env[ENV.snapshotMigration] ?? 'changed') as SnapshotMigration,
+      migration: process.env[ENV.snapshotMigration] as SnapshotMigration | undefined,
     });
     file = { state, failed: false, skipped: [] };
     snapshotFiles.set(testPath, file);

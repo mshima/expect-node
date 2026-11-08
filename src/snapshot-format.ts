@@ -119,20 +119,9 @@ export const naturalCompare = (a: string, b: string): number => {
 const HEADER = '// expect-node Snapshot v1, https://github.com/mshima/expect-node#snapshots';
 const HEADERS = /^\/\/ (expect-node|Jest|Vitest) Snapshot v1, /;
 
-/** The error of a file whose header is not the one of the snapshots of expect-node, Jest or Vitest v1, if any. */
-const headerError = (contents: string) => {
-  const [header] = contents.split('\n', 1);
-  if (HEADERS.test(header)) return undefined;
-  return new Error(
-    `Outdated snapshot: the header of the file is not the one of the snapshots of expect-node, Jest or Vitest v1, ` +
-      `update all of them.\n\nExpected: ${HEADER}\nReceived: ${header}\n\nBefore you upgrade snapshots, we recommend ` +
-      'that you revert any local changes to tests or other code, to ensure that you do not store invalid state.',
-  );
-};
-
 /**
- * The snapshots of a file by their keys, and whether it is to be written again (its header outdated, which fails the
- * tests when the snapshots are not written).
+ * The snapshots of a file by their keys; whether it is to be written again (its header none of these, which fails the
+ * tests when the snapshots are not written); and the header of a file of Jest or of Vitest.
  */
 export const readSnapshotFile = (snapshotPath: string, update: 'all' | 'new' | 'none') => {
   const data = Object.create(null) as Record<string, string>;
@@ -146,11 +135,17 @@ export const readSnapshotFile = (snapshotPath: string, update: 'all' | 'new' | '
       // A file that is not a script: its snapshots none, written again.
     }
   }
-  const invalid = contents ? headerError(contents) : undefined;
-  if (invalid && update === 'none') throw invalid;
-  // A file of Jest or of Vitest, or of another header written again.
-  const foreign = contents !== '' && HEADERS.exec(contents)?.[1] !== 'expect-node';
-  return { data, dirty: invalid !== undefined, foreign, header: contents.split('\n', 1)[0] };
+  const [header] = contents.split('\n', 1);
+  const of = HEADERS.exec(header)?.[1];
+  const dirty = contents !== '' && of === undefined;
+  if (dirty && update === 'none') {
+    throw new Error(
+      `Outdated snapshot: the header of the file is not the one of the snapshots of expect-node, Jest or Vitest v1, ` +
+        `update all of them.\n\nExpected: ${HEADER}\nReceived: ${header}\n\nBefore you upgrade snapshots, we recommend ` +
+        'that you revert any local changes to tests or other code, to ensure that you do not store invalid state.',
+    );
+  }
+  return { data, dirty, foreignHeader: of === 'Jest' || of === 'Vitest' ? header : undefined };
 };
 
 /** Writes the snapshots of a file, with the header of expect-node or the one given (of the file read, kept). */

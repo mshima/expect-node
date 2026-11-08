@@ -15,7 +15,7 @@ export const ENV = {
   forbidOnly: 'EXNODE_FORBID_ONLY',
   /** `true`, the modules imported again after a mock (see mocks.ts), by `reimport`. */
   reimport: 'EXNODE_REIMPORT',
-  /** `jest`, the names of the snapshots of Jest (see snapshots.ts), by `snapshotNames`; of Vitest else. */
+  /** `vitest` or `jest`, the names of the snapshots (see snapshots.ts), by `snapshotNames`. */
   snapshotNames: 'EXNODE_SNAPSHOT_NAMES',
   /** `changed`, `all` or `keep`, the migration of the snapshots of other names (see snapshots.ts), by `snapshotMigration`. */
   snapshotMigration: 'EXNODE_SNAPSHOT_MIGRATION',

@@ -69,21 +69,21 @@ export class SnapshotState {
     this.snapshotFormat = options.snapshotFormat;
     this.names = options.names ?? 'vitest';
     this.migration = options.migration ?? 'changed';
-    const { data, dirty, foreign, header } = readSnapshotFile(snapshotPath, this.update);
+    const { data, dirty, foreignHeader } = readSnapshotFile(snapshotPath, this.update);
     this.data = data;
-    this.header = this.migration === 'keep' && foreign && !dirty ? header : undefined;
+    this.header = this.migration === 'keep' ? foreignHeader : undefined;
     // A file of Jest or of Vitest written in the format of expect-node at once, by `all`.
-    this.dirty = dirty || (foreign && this.migration === 'all' && this.update !== 'none');
+    this.dirty = dirty || (foreignHeader !== undefined && this.migration === 'all' && this.update !== 'none');
     this.unchecked = new Set(Object.keys(data));
   }
 
   /** The snapshots of a test not run (skipped) kept, by its titles: checked, never removed as obsolete. */
   markSnapshotsAsCheckedForTest(titles: string[]) {
     // Of Jest, its titles by spaces and a hint after ': '; of Vitest, its titles and a hint by ' > '.
-    const tests = [`${titles.join(' ')}: `, `${titles.join(' > ')} > `];
+    const tests = [titles.join(' '), titles.join(' > ')];
     for (const key of this.unchecked) {
-      const name = `${keyToTestName(key)}${key.includes(' > ') ? ' > ' : ': '}`;
-      if (tests.some(test => name.startsWith(test))) this.unchecked.delete(key);
+      const name = keyToTestName(key);
+      if (tests.some(test => name === test || name.startsWith(`${test}: `) || name.startsWith(`${test} > `))) this.unchecked.delete(key);
     }
   }
 
