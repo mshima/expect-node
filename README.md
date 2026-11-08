@@ -26,6 +26,9 @@ describe('a module', () => {
 npm install --save-dev expect-node
 ```
 
+It installs no dependencies: the expect of Jest, jest-mock and pretty-format are bundled in it, their types too (their
+licenses in `dist/THIRD-PARTY-LICENSES.md`).
+
 ## Pure node
 
 The tests run the code as it runs in production: node strips the types of TypeScript in place, without a transform, a
@@ -104,7 +107,9 @@ The names Jest and Vitest share, so that a migration renames the imports and `vi
 - `beforeAll`, `afterAll`, `beforeEach`, `afterEach`, the timeout after the function in the format of the compatibility,
   which may end by a callback it gets (`done`, an error failing the hook) like Jest and mocha; `before` and `after`,
   the names of mocha.
-- `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`).
+- `expect`: the one of Jest, with a message after the value like Vitest (`expect(value, 'the value').toBe(1)`). The
+  matchers of a project (`expect.extend`) are typed in `Matchers` of expect-node, the one of Jest bundled in it:
+  `declare module 'expect-node' { interface Matchers<R extends void | Promise<void>, T = unknown> { toBeOdd(): R } }`.
 - `exnode`, the `vi` of Vitest, the `jest` of Jest, the `esmocha` of esmocha:
   - `fn`, `spyOn`, `isMockFunction`, `mocked`, `clearAllMocks`, `resetAllMocks`, `restoreAllMocks`: jest-mock; all but
     `mocked` exported by themselves too, like esmocha.

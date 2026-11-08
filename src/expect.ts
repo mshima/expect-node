@@ -40,7 +40,8 @@ declare module 'expect' {
     /** A serializer of the snapshots, of the values it tests, before the ones added before it. */
     addSnapshotSerializer(serializer: Plugin): void;
   }
-  interface Matchers<R extends void | Promise<void>> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the type parameters of the matchers of expect, both.
+  interface Matchers<R extends void | Promise<void>, T = unknown> {
     /** The value against its snapshot, in `__snapshots__/<test file>.snap` (see snapshots.ts). */
     toMatchSnapshot(propertiesOrHint?: object | string, hint?: string): R;
     /** The value against its snapshot written in the test (see snapshots.ts). */
