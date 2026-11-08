@@ -1,0 +1,23 @@
+# The PR of dependabot updating the packages bundled in dist (the group bundled of dependabot.yml), a fix of
+# expect-node: its commit given to release-please as one (BEGIN_COMMIT_OVERRIDE), dependabot naming the commits of the
+# devDependencies alike. Runs no code of the PR.
+name: Dependabot bundled
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+permissions:
+  pull-requests: write
+jobs:
+  fix:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && startsWith(github.event.pull_request.head.ref, 'dependabot/npm_and_yarn/bundled-')
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.html_url }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          case "$BODY" in *BEGIN_COMMIT_OVERRIDE*) exit 0 ;; esac
+          printf '%s\n\nBEGIN_COMMIT_OVERRIDE\nfix(deps): %s\nEND_COMMIT_OVERRIDE\n' "$BODY" "${TITLE#*: }" > body.md
+          gh pr edit "$PR" --body-file body.md
