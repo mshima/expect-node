@@ -1,13 +1,14 @@
 version: 2
 updates:
-  # The major updates only: the ranges of package.json take the minor and patch ones.
+  # Every update: the packages bundled in dist are the versions of the lockfile, the minor and patch ones in a PR.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    ignore:
-      - dependency-name: '*'
-        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  # The major updates only: the tags of the majors take the minor and patch ones.
   - package-ecosystem: github-actions
     directory: /
     schedule:
