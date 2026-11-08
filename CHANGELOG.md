@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/mshima/expect-node/compare/expect-node-v0.4.1...expect-node-v0.5.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* the snapshots are named as by Vitest by default; a file of Jest names its new or changed snapshots so. Set snapshotNames to jest to keep the names of Jest.
+
+### Features
+
+* the snapshot files of Vitest, the names of Vitest by default ([#40](https://github.com/mshima/expect-node/issues/40)) ([e56a304](https://github.com/mshima/expect-node/commit/e56a30401ffe7d9e38f274ade4682c9edbed38ca))
+
 ## [0.4.1](https://github.com/mshima/expect-node/compare/expect-node-v0.4.0...expect-node-v0.4.1) (2026-11-07)
 
 
