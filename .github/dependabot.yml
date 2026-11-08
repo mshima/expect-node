@@ -1,13 +1,35 @@
 version: 2
 updates:
-  # The major updates only: the ranges of package.json take the minor and patch ones.
+  # The packages bundled in dist, every update in a PR (the versions of the lockfile, an install of expect-node none of
+  # their ranges), a fix of expect-node (see dependabot-bundled.yml). The tools of the build, the lint and the types, a
+  # new one listed here too, by their majors only. YAML aliases are not read by dependabot.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     ignore:
-      - dependency-name: '*'
+      - dependency-name: '@eslint/*'
         update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: '@types/*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'esbuild'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'eslint*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'globals'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'jiti'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'prettier'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'rollup*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+      - dependency-name: 'typescript*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-patch']
+    groups:
+      bundled:
+        patterns: ['@jest/expect-utils', 'expect', 'jest-diff', 'jest-matcher-utils', 'jest-mock', 'pretty-format']
+  # The major updates only: the tags of the majors take the minor and patch ones.
   - package-ecosystem: github-actions
     directory: /
     schedule:
