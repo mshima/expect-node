@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0](https://github.com/mshima/expect-node/compare/expect-node-v0.5.0...expect-node-v0.6.0) (2026-11-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* expect, jest-mock and pretty-format are no longer installed with expect-node. The matchers of a project are typed in the Matchers of expect-node (declare module 'expect-node'), no longer of expect.
+
+### Features
+
+* no dependencies installed, expect, jest-mock and pretty-format bundled ([#42](https://github.com/mshima/expect-node/issues/42)) ([aaa6dab](https://github.com/mshima/expect-node/commit/aaa6dab828731177d2a93e6daf227ebe17acbe09))
+
 ## [0.5.0](https://github.com/mshima/expect-node/compare/expect-node-v0.4.1...expect-node-v0.5.0) (2026-11-08)
 
 
